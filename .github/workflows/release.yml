@@ -1,0 +1,94 @@
+name: Release
+
+# Vydání verze: po pushnutí tagu vX.Y.Z vznikne GitHub Release se souhrnnou
+# větou z příslušné sekce CHANGELOG.md a odkazem na něj. Z releasu čte info kanál Miládky
+# (miladka.cz/moduly.json) verzi a změny; bez releasu se nová verze
+# k uživatelům nedostane. Pravidla vydání: CLAUDE.md, sekce Vydání verze.
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Popis změn z CHANGELOG.md
+        run: |
+          VERZE="${GITHUB_REF_NAME#v}"
+          # Sekce od "## [VERZE]" po další "## [" (bez obou nadpisů).
+          awk -v v="$VERZE" '
+            index($0, "## [" v "]") == 1 { uvnitr = 1; next }
+            uvnitr && index($0, "## [") == 1 { exit }
+            uvnitr { print }
+          ' CHANGELOG.md > sekce.md
+          # Do releasu jen souhrnná věta (první neprázdný řádek sekce) a odkaz
+          # na changelog - podrobnosti žijí na jednom místě, v CHANGELOG.md.
+          SOUHRN=$(grep -m1 -v '^[[:space:]]*$' sekce.md || true)
+          if [ -z "$SOUHRN" ]; then
+            echo "CHANGELOG.md nemá sekci ## [$VERZE] se souhrnnou větou" >&2
+            exit 1
+          fi
+          # Kontrolní seznam vydání (CLAUDE.md): každá verze říká, co má
+          # Miládka při aktualizaci udělat - i kdyby to bylo "nic".
+          if ! grep -q '^### Při aktualizaci' sekce.md; then
+            echo "Sekce ## [$VERZE] v CHANGELOG.md nemá podsekci '### Při aktualizaci' (když není potřeba nic: 'Nastavení se nemění.')" >&2
+            exit 1
+          fi
+          printf '%s\n\nPodrobně v [CHANGELOG.md](https://github.com/%s/blob/%s/CHANGELOG.md).\n' \
+            "$SOUHRN" "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" > zmeny.md
+          # Verze v package.json musí sedět s tagem.
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$PKG" != "$VERZE" ]; then
+            echo "package.json má $PKG, tag je $VERZE" >&2
+            exit 1
+          fi
+
+      # Jeden soubor se vším uvnitř: uživatel potřebuje jen Node.js, žádné
+      # npm install, a ve složce Miládky neleží tisíce souborů node_modules.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Sestavení do jednoho souboru
+        run: |
+          npm ci
+          npm run build
+          npm run bundle
+          cd dist && sha256sum mcp-phone.mjs > SHA256SUMS && cat SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body_path: zmeny.md
+          files: |
+            dist/mcp-phone.mjs
+            dist/SHA256SUMS
+
+  # Po vydání ověří, že verzi hlásí info kanál Miládky (miladka.cz/moduly.json
+  # drží data 10 minut). Když ne - chybí záznam v MODULY na webu, nebo se
+  # release nenačetl - založí issue, ať se to nedozví až uživatel.
+  info-kanal:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Verze v info kanálu
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERZE="${TAG#v}"
+          for i in $(seq 1 20); do
+            if curl -s https://miladka.cz/moduly.json | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if any(m['id']=='phone' and m['verze']=='$VERZE' for m in d['moduly']) else 1)"; then
+              echo "Info kanál hlásí phone $VERZE."
+              exit 0
+            fi
+            sleep 60
+          done
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "Info kanál nehlásí verzi $VERZE" \
+            --body "miladka.cz/moduly.json ani 20 minut po vydání neukazuje modul phone ve verzi $VERZE. Zkontroluj záznam v MODULY (web-miladka, src/lib/moduly.ts) a release. Dokud to nejde, Miládka u uživatelů o nové verzi neví."
+          exit 1

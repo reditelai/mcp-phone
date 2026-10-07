@@ -30,8 +30,8 @@ const NUMBER_DESCRIPTION = [
   'Say only what the owner gave you to say. The number is used for this call only; do not write it anywhere.',
 ].join(' ');
 
-export function registerCallTools(server: McpServer, config: Config): void {
-  const { settings } = config;
+/** `current` returns the settings in force now, so tel_reload_config takes effect without a new conversation. */
+export function registerCallTools(server: McpServer, current: () => Config): void {
 
   server.registerTool(
     'tel_call',
@@ -50,6 +50,8 @@ export function registerCallTools(server: McpServer, config: Config): void {
     },
     async ({ to, message, urgent, wait }) =>
       runTool(async () => {
+        const config = current();
+        const { settings } = config;
         const toOwner = to === OWNER;
         const number = toOwner ? settings.owner : settings.recipients[to];
         if (number === undefined) {
@@ -77,7 +79,8 @@ export function registerCallTools(server: McpServer, config: Config): void {
     },
     async ({ number, message, wait }) =>
       runTool(async () => {
-        if (!settings.call_other_numbers) {
+        const config = current();
+        if (!config.settings.call_other_numbers) {
           throw new ToolError(
             'other_numbers_off',
             'Calling numbers outside the settings is switched off (call_other_numbers). Tell the owner; do not switch it on yourself.',

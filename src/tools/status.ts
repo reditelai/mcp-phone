@@ -8,7 +8,7 @@ import type { Config } from '../config.js';
 import { explain, fetchCall } from '../twilio.js';
 import { asJson, runTool } from './shared.js';
 
-export function registerStatusTool(server: McpServer, config: Config): void {
+export function registerStatusTool(server: McpServer, current: () => Config): void {
   server.registerTool(
     'tel_status',
     {
@@ -20,7 +20,7 @@ export function registerStatusTool(server: McpServer, config: Config): void {
     },
     async ({ call_id }) =>
       runTool(async () => {
-        const info = await fetchCall(config.keys, call_id);
+        const info = await fetchCall(current().keys, call_id);
         return asJson({ ...info, meaning: explain(info) });
       }),
   );

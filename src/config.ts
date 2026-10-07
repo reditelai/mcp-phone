@@ -29,6 +29,45 @@ const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'čas ve tvaru HH:MM
 /** The name the owner goes by in tel_call. A recipient may not take it. */
 export const OWNER = 'owner';
 
+/**
+ * A two-way conversation (phase 2): Twilio converts speech to text and back,
+ * a bridge in this server passes the text to a separate Claude session and
+ * back. Off until the owner sets it up: it needs an address Twilio can reach.
+ */
+const conversationSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    // The address Twilio connects to, e.g. https://telefon.example.com - a
+    // reverse proxy with HTTPS in front of listen_host:listen_port. Without it,
+    // tunnel "quick" opens a temporary Cloudflare tunnel for the length of a call.
+    public_url: z.string().regex(/^https:\/\/[^/\s]+$/, 'adresa ve tvaru https://telefon.example.com, bez lomítka na konci').optional(),
+    tunnel: z.enum(['none', 'quick']).default('none'),
+    cloudflared_path: z.string().min(1).default('cloudflared'),
+    // Where the bridge listens. Keep it off the public interface: the proxy or
+    // the tunnel is the only way in.
+    listen_host: z.string().min(1).default('127.0.0.1'),
+    listen_port: z.number().int().min(1024).max(65535).default(8787),
+    // The Claude Code executable the call session runs on. The SDK's own copy
+    // is hundreds of megabytes per system, so the server uses the installed one.
+    claude_path: z.string().min(1).default('claude'),
+    model: z.string().min(1).default('sonnet'),
+    greeting: z.string().min(1).default('Ahoj, tady Miládka. Poslouchám.'),
+    max_minutes: z.number().int().min(1).max(60).default(10),
+    // Folder the call session may read (the vault). Defaults to Miládka's folder.
+    vault_dir: z.string().min(1).optional(),
+    // Who Miládka is, read into the call session's instructions.
+    persona_file: z.string().min(1).default('CLAUDE.md'),
+    // Where the transcript of each call is written, relative to vault_dir.
+    transcript_dir: z.string().min(1).default('vstupy/hovory'),
+    vault_read: z.boolean().default(true),
+    // Extra MCP servers for the call session (same shape as in .mcp.json) and
+    // the tools from them it may use. Never the WhatsApp add-on: it holds one
+    // live connection and a second session would knock it off.
+    mcp_servers: z.record(z.string(), z.object({ command: z.string(), args: z.array(z.string()).default([]), env: z.record(z.string(), z.string()).optional() })).default({}),
+    allowed_tools: z.array(z.string()).default([]),
+  })
+  .strict();
+
 const settingsSchema = z
   .object({
     // The owner is the only one Miládka calls on her own, the only one she may
@@ -53,9 +92,11 @@ const settingsSchema = z
     // Where the Twilio keys are. Relative to Miládka's folder when the server
     // runs from it, else to the settings file.
     passwords_file: z.string().min(1).optional(),
+    conversation: conversationSchema.prefault({}),
   })
   .strict();
 
+export type Conversation = z.infer<typeof conversationSchema>;
 export type Settings = z.infer<typeof settingsSchema>;
 
 const keysSchema = z
@@ -63,6 +104,9 @@ const keysSchema = z
     account_sid: z.string().regex(/^AC[0-9a-f]{32}$/, 'Account SID začíná AC a má 34 znaků'),
     api_key: z.string().regex(/^SK[0-9a-f]{32}$/, 'SID API klíče začíná SK a má 34 znaků'),
     api_secret: z.string().min(16, 'Secret API klíče je kratší, než by měl být'),
+    // Optional: the call session then bills this Anthropic API key instead of
+    // the Claude subscription it is logged in with.
+    anthropic_api_key: z.string().startsWith('sk-ant-', 'klíč Anthropicu začíná sk-ant-').optional(),
   })
   .strict();
 

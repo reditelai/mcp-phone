@@ -37,13 +37,9 @@ export async function runTool(work: () => Promise<ToolResponse>): Promise<ToolRe
 const WAIT_MS = 120_000;
 const POLL_MS = 4_000;
 
-/**
- * Every check, then the call, then waiting for how it ended. The order matters:
- * nothing reaches Twilio before all the limits have passed.
- */
-export async function call(config: Config, to: string, toOwner: boolean, message: string, urgent: boolean, wait: boolean): Promise<CallInfo & { meaning: string }> {
+/** Quiet hours and the daily limit: checked before anything reaches Twilio. */
+export async function preflight(config: Config, toOwner: boolean, urgent: boolean): Promise<void> {
   const { settings, keys } = config;
-  const text = checkMessage(settings, message);
   checkQuietHours(settings, toOwner, urgent);
   const today = await countCallsSince(keys, settings, startOfToday(settings.timezone));
   if (today >= settings.daily_limit) {
@@ -52,6 +48,16 @@ export async function call(config: Config, to: string, toOwner: boolean, message
       `${today} calls have gone out today and the daily limit is ${settings.daily_limit}. No more calls today; use another channel.`,
     );
   }
+}
+
+/**
+ * Every check, then the call, then waiting for how it ended. The order matters:
+ * nothing reaches Twilio before all the limits have passed.
+ */
+export async function call(config: Config, to: string, toOwner: boolean, message: string, urgent: boolean, wait: boolean): Promise<CallInfo & { meaning: string }> {
+  const { settings, keys } = config;
+  const text = checkMessage(settings, message);
+  await preflight(config, toOwner, urgent);
 
   let info = await placeCall(keys, settings, to, text);
   if (wait) {

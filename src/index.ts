@@ -18,6 +18,7 @@ import { ConfigError } from './errors.js';
 import { bundledVersion, vaultConfigPath } from './location.js';
 import { inQuietHours, startOfToday } from './rules.js';
 import { registerCallTools } from './tools/call.js';
+import { registerConverseTool } from './tools/converse.js';
 import { registerReloadTool } from './tools/reload.js';
 import { registerStatusTool } from './tools/status.js';
 import { countCallsSince } from './twilio.js';
@@ -115,6 +116,7 @@ async function main(): Promise<void> {
   const current = (): Config => active;
   registerCallTools(server, current);
   registerStatusTool(server, current);
+  registerConverseTool(server, current);
   registerReloadTool(server, current, (next) => {
     active = next;
   });

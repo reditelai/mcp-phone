@@ -9,12 +9,31 @@
     "url": "git+https://github.com/reditelai/mcp-phone.git"
   },
   "homepage": "https://github.com/reditelai/mcp-phone#readme",
-  "keywords": ["mcp", "model-context-protocol", "twilio", "voice", "phone"],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "twilio",
+    "voice",
+    "phone"
+  ],
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "main": "dist/index.js",
-  "bin": { "mcp-phone": "dist/index.js" },
-  "files": ["dist", "docs", "config.example.json", "CHANGELOG.md", "LICENSE", "NOTICE", "README.md", "README.en.md"],
+  "bin": {
+    "mcp-phone": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "config.example.json",
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "README.en.md"
+  ],
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
@@ -23,11 +42,14 @@
     "bundle": "node scripts/bundle.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.293",
     "@modelcontextprotocol/server": "^2.0.0",
+    "ws": "^8.22.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
+    "@types/ws": "^8.18.2",
     "esbuild": "^0.25.12",
     "typescript": "^7.0.2"
   }

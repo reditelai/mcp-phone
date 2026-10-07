@@ -65,7 +65,14 @@ function toCallInfo(body: Record<string, unknown>): CallInfo {
 }
 
 export async function placeCall(keys: Keys, settings: Settings, to: string, message: string): Promise<CallInfo> {
-  return toCallInfo(await request(keys, 'POST', '/Calls.json', { To: to, From: settings.from, Twiml: sayTwiml(settings, message) }));
+  return placeTwimlCall(keys, settings, to, sayTwiml(settings, message));
+}
+
+/** A call with any TwiML; timeLimit (seconds) makes Twilio hang up on its own. */
+export async function placeTwimlCall(keys: Keys, settings: Settings, to: string, twiml: string, timeLimit?: number): Promise<CallInfo> {
+  const form: Record<string, string> = { To: to, From: settings.from, Twiml: twiml };
+  if (timeLimit !== undefined) form['TimeLimit'] = String(timeLimit);
+  return toCallInfo(await request(keys, 'POST', '/Calls.json', form));
 }
 
 export async function fetchCall(keys: Keys, sid: string): Promise<CallInfo> {

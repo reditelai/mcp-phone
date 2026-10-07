@@ -2,12 +2,16 @@
 
 Tenhle soubor čte asistent, ne uživatel. Server je stavěný pro [Miládku](https://miladka.cz) - asistentku, která běží v Claude Code na uživatelově počítači (Windows nebo macOS) nad jeho vaultem, složkou markdown souborů. Návod s tím počítá.
 
-Server umí zavolat a přečíst vzkaz. Volá přes službu Twilio z čísla, které si uživatel u Twilia koupí. Rozhovor zatím neumí.
+Server umí dvě věci, obě přes službu Twilio z čísla, které si uživatel u Twilia koupí:
+
+- **Zavolat a přečíst vzkaz** (`tel_call`) - funguje kdekoli, kde běží Miládka.
+- **Rozhovor s majitelem** (`tel_converse`) - majitel mluví a odpovídá mu oddělená relace Claude, která čte jeho poznámky. Je to nadstavba pro pokročilé: Twilio se musí během hovoru připojit k počítači, takže potřebuje veřejnou adresu (Část C).
 
 Má dvě části:
 
 - **Část A - Nastavení.** Jak server s uživatelem nainstalovat, nastavit a ověřit. Účet u Twilia zakládá uživatel sám podle článku na webu; ty ho provedeš zbytkem.
 - **Část B - Provoz.** Kdy volat, jak psát vzkaz, co po hovoru.
+- **Část C - Rozhovor.** Nastavení a provoz rozhovoru s majitelem.
 
 Když server ještě nainstalovaný není, čteš tenhle soubor nejspíš z GitHubu: <https://raw.githubusercontent.com/reditelai/mcp-phone/main/docs/pro-asistenta.md>. Jak se jednotlivé nástroje volají, říkají jejich popisy.
 
@@ -279,3 +283,84 @@ Nastavení `system/phone.json` a záznam v `.mcp.json` přijdou zálohou, progra
 | `twilio_auth` | Klíč neplatí. Nový klíč (krok 4, bod 2), soubor (krok 6), `tel_reload_config`. |
 | `trial accounts have limited parameter access` | Účet je pořád zkušební. Ať ho převede na placený (Upgrade v konzoli). |
 | Server v `/mcp` nenaběhne | Spusť kontrolu z kroku 7, vypíše důvod. |
+
+---
+
+# Část C - Rozhovor
+
+Rozhovor nastavuj, až funguje volání se vzkazem (Část A). Je pro pokročilé a uživateli to řekni předem jednou větou: „Aby se se mnou dalo mluvit, musí se Twilio během hovoru připojit k tomuhle počítači. Na serveru s doménou je to spolehlivé, na běžném počítači jen přes zkušební tunel bez záruky."
+
+## Jak to funguje
+
+Při `tel_converse` server otevře na dobu hovoru malý most (WebSocket) a zavolá majiteli. Twilio převádí řeč na text a text na řeč a přes most si ho vyměňuje s **oddělenou relací Claude** (Agent SDK). Ta:
+
+- nenačte žádné nastavení, háčky ani MCP servery ze souborů - jen čtení poznámek ve vaultu (mimo `.miladka/secrets/`, `.git` a `.env`), nástroj „zavěsit" a servery, které jí výslovně dáš v nastavení,
+- **nemůže nic odeslat, změnit ani smazat**; co majitel v hovoru chce, připraví jako návrh a ty to po hovoru dotáhneš s jeho písemným souhlasem,
+- bere si osobnost z `persona_file` (výchozí `CLAUDE.md` ve vaultu), takže mluví jako ty,
+- po rozloučení sama zavěsí.
+
+Hovor platí Twilio (telefon, převod řeči) a Claude (relace jede na předplatném, ke kterému je Claude Code v počítači přihlášené; s klíčem `anthropic_api_key` v souboru s klíči na API).
+
+## Co je potřeba
+
+1. **Claude Code v terminálu** (`claude --version`). Most spouští hovorovou relaci přes nainstalované Claude Code; samotná desktopová aplikace nestačí. Cestu k němu dej do `conversation.claude_path`, když `claude` není v systémové cestě.
+2. **Adresa, na kterou se Twilio připojí**, jedna z cest:
+
+| Cesta | Kdy | Nastavení |
+|---|---|---|
+| **Server se statickou IP a doménou** (ověřené) | Miládka běží na Linux serveru | záznam A domény na IP serveru, reverzní proxy s HTTPS (Caddy, nginx) předává na `listen_host:listen_port`; `public_url: "https://telefon.example.com"` |
+| **Rychlý tunel Cloudflare** | běžný počítač s Windows nebo macOS | program `cloudflared` (stáhnout z <https://github.com/cloudflare/cloudflared/releases>, ověřit, cestu do `cloudflared_path`); `tunnel: "quick"`. **Cloudflare ho uvádí jen pro testování, bez záruky dostupnosti** - řekni to uživateli. |
+| Stálý tunel (pojmenovaný tunel Cloudflare s vlastní doménou, ngrok) | pokročilý uživatel bez serveru | jako server, `public_url` na adresu tunelu. **Neotestované** - řekni to uživateli. |
+
+Most poslouchá na `listen_host:listen_port` (výchozí `127.0.0.1:8787`) jen po dobu hovoru. Nedávej `listen_host` na veřejnou adresu: dovnitř se má jít jen přes proxy nebo tunel. Když proxy běží v Dockeru, poslouchej na adrese serveru pro kontejnery (typicky `172.17.0.1`) a v proxy předávej na `host.docker.internal`.
+
+## Nastavení
+
+Do `system/phone.json` přidej oddíl `conversation`:
+
+```json
+"conversation": {
+  "enabled": true,
+  "public_url": "https://telefon.example.com",
+  "listen_host": "127.0.0.1",
+  "listen_port": 8787
+}
+```
+
+| Klíč | Co znamená | Výchozí |
+|---|---|---|
+| `enabled` | rozhovor zapnutý | `false` |
+| `public_url` | stálá adresa, přes kterou se Twilio připojí | žádná |
+| `tunnel` | `quick` = rychlý tunel Cloudflare na dobu hovoru, když `public_url` chybí | `none` |
+| `cloudflared_path` | cesta k programu cloudflared | `cloudflared` |
+| `listen_host`, `listen_port` | kde most poslouchá | `127.0.0.1`, `8787` |
+| `claude_path` | Claude Code pro hovorovou relaci | `claude` |
+| `model` | model hovorové relace; `sonnet` odpovídá nejrychleji a česky nejlíp | `sonnet` |
+| `greeting` | první věta po zvednutí, když `tel_converse` nedostane `opening` | „Ahoj, tady Miládka. Poslouchám." |
+| `max_minutes` | nejdelší hovor, pak Twilio zavěsí | `10` |
+| `vault_dir` | složka, kterou relace čte | složka Miládky |
+| `persona_file` | kdo jsi a jak mluvíš | `CLAUDE.md` |
+| `transcript_dir` | kam se ukládá přepis každého hovoru | `vstupy/hovory` |
+| `vault_read` | relace smí číst poznámky | `true` |
+| `mcp_servers`, `allowed_tools` | další servery pro relaci a nástroje z nich, které smí použít (třeba čtení pošty z Multigmailu). **Nikdy WhatsApp** - drží jedno spojení a druhá relace by ho shodila. | žádné |
+
+Pak `tel_reload_config` a zkušební rozhovor: `tel_converse` s `opening` „Ahoj, tady Miládka, zkouším rozhovor. Slyšíš mě?". Ověř s majitelem, že rozuměla, odpovídala včas a po rozloučení zavěsila.
+
+## Provoz
+
+- **Jen majiteli.** Rozhovor s nikým jiným server nedovolí: relace čte poznámky.
+- **Kdy:** když je potřeba něco s majitelem probrat a nepočká to. Na jednosměrnou zprávu `tel_call`.
+- **`opening`** - první věta po zvednutí: kdo volá a proč. **`context`** - co relace potřebuje vědět: proč voláš, fakta, co od majitele chceš.
+- **Po hovoru** dostaneš celý přepis (a je uložený v `transcript_dir`). Projdi ho: co majitel chtěl odeslat nebo změnit, připrav jako koncept nebo návrh a nech si to písemně potvrdit. Zapiš, co z hovoru plyne, tam, kam patří (deník, úkoly, lidé), a soubor s přepisem pak smaž nebo zařaď.
+- Klidné hodiny a denní strop platí stejně jako u `tel_call`.
+
+## Řešení problémů
+
+| Hláška | Co dělat |
+|---|---|
+| `conversation_off` | Rozhovor není zapnutý (`conversation.enabled`). |
+| `no_public_address` | Chybí `public_url` i `tunnel: "quick"`. |
+| `bridge_unreachable` | Twilio se k mostu nedostane: zkontroluj DNS, proxy (předává na `listen_host:listen_port`?) nebo tunel. `curl https://ADRESA/health` během hovoru má vrátit 200. |
+| `line_busy` | Port je obsazený, nejspíš právě běží jiný hovor. |
+| `claude_not_found` | Claude Code v terminálu chybí nebo `claude_path` nesedí. |
+| `tunnel_failed` | cloudflared chybí nebo nenaběhl; zkontroluj `cloudflared_path`. |

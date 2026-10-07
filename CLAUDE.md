@@ -16,7 +16,9 @@ MCP server, přes který asistent zavolá přes Twilio a přečte vzkaz. Stavěn
 
 **6. Klíče nikdy na výstup.** Chyby jmenují soubor a řádek, nikdy hodnotu. `--check` ověří klíče dotazem na Twilio a vypíše jen výsledek. API klíč (`SK…`), ne Auth Token účtu.
 
-**7. `stdout` je protokol MCP.** Hlášky pro člověka jen na `stderr`, kromě `--check` a `--version`, které běží bez MCP.
+**7. Hovorová relace je oddělená.** `tel_converse` spouští relaci Claude přes Agent SDK s `settingSources: []`, `strictMcpConfig: true` a ručně danými nástroji. Nesmí načíst `.mcp.json` vaultu: spustila by WhatsApp podruhé a dvě spojení téhož zařízení se shazují. Čtení jen uvnitř vaultu, nikdy `secrets`, `.git`, `.env` (kontrola v `canUseTool` i pravidla v `disallowedTools`). Nic neodesílá ani nemění: co majitel chce, je po hovoru návrh k písemnému potvrzení. Most přijme jen tajnou adresu daného hovoru a jen náš hovor na majitele.
+
+**8. `stdout` je protokol MCP.** Hlášky pro člověka jen na `stderr`, kromě `--check` a `--version`, které běží bez MCP.
 
 ## Co nikdy nesmí do gitu
 

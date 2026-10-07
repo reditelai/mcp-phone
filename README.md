@@ -9,7 +9,7 @@ MCP server, přes který asistent zavolá a přečte vzkaz. Stavěný pro [Milá
 - **Zavolá vám** a přečte vzkaz přirozeným českým hlasem.
 - **Volá jen tam, kam smí:** vám, lidem, které si uložíte (jen na váš pokyn), a na jiné číslo jen tehdy, když každý hovor odkliknete.
 - **Pojistky hlídá sám**, ne jen asistent: klidné hodiny (výchozí 22:00-7:00), denní strop hovorů a délku vzkazu. Mail ani zpráva od cizího ho volat nepřiměje.
-- Rozhovor zatím neumí.
+- **Rozhovor (pro pokročilé):** zavolá vám a můžete s ní mluvit, odpovídá z vašich poznámek. Potřebuje adresu, na kterou se Twilio připojí: ověřené je to na serveru s doménou, na běžném počítači jen přes zkušební tunel Cloudflare.
 
 ## Instalace
 

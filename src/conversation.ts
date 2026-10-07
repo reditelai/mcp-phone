@@ -269,8 +269,8 @@ function writeTranscript(config: Config, vaultDir: string, context: string, tran
   return relative(vaultDir, file);
 }
 
-/** The Claude session behind one call. */
-function startSession(config: Config, vaultDir: string, claude: string, context: string, ws: WebSocket, transcript: Line[], onHangUp: () => void) {
+/** The Claude session behind one call. Exported for the isolation test. */
+export function startSession(config: Config, vaultDir: string, claude: string, context: string, ws: WebSocket, transcript: Line[], onHangUp: () => void) {
   const conv = config.settings.conversation;
   const pending: Array<string | null> = [];
   let wake: (() => void) | null = null;

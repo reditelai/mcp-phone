@@ -15,7 +15,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 
 import { loadConfig, OWNER, type Config } from './config.js';
 import { ConfigError } from './errors.js';
-import { bundledVersion, vaultConfigPath } from './location.js';
+import { bundledVersion, miladkaRequired, outsideMiladka, vaultConfigPath } from './location.js';
 import { inQuietHours, startOfToday } from './rules.js';
 import { registerCallTools } from './tools/call.js';
 import { registerConverseTool } from './tools/converse.js';
@@ -94,6 +94,14 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   if (argv.includes('--version')) {
     process.stdout.write(`${VERSION}\n`);
+    return;
+  }
+  const outside = outsideMiladka();
+  if (outside !== null) {
+    // --check prints for the assistant on stdout, the server for a person on stderr.
+    if (argv.includes('--check')) process.stdout.write(`chyba: ${miladkaRequired()}\n`);
+    else process.stderr.write(`${miladkaRequired()}\n`);
+    process.exitCode = argv.includes('--check') ? 6 : 1;
     return;
   }
   if (argv.includes('--check')) {

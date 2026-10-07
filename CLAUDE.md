@@ -20,6 +20,8 @@ MCP server, přes který asistent zavolá přes Twilio a přečte vzkaz. Stavěn
 
 **8. `stdout` je protokol MCP.** Hlášky pro člověka jen na `stderr`, kromě `--check` a `--version`, které běží bez MCP.
 
+**9. Server běží jen v Miládce** (Karel 8. 10. 2026). Vydaný soubor kontroluje při startu, že leží ve složce doplňků a vedle je `.miladka/VERSION` (`outsideMiladka` v `src/location.ts`). Kontrolu neodstraňuj a README ani návod nesmí popisovat použití bez Miládky.
+
 ## Co nikdy nesmí do gitu
 
 - **Klíče od Twilia**, ani jako příklad. `.gitignore` má `hesla.json`, `passwords.json`, `phone.json`, `.env*` od prvního commitu.

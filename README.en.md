@@ -1,6 +1,6 @@
 # mcp-phone
 
-An MCP server that lets an assistant phone you and read a message out loud. Built for [Miládka](https://miladka.cz): when something urgent lands in your mail and writing would not reach you in time, she calls.
+An MCP server that lets an assistant phone you and read a message out loud. It is an add-on for [Miládka](https://miladka.cz) and runs only inside her: when something urgent lands in your mail and writing would not reach you in time, she calls.
 
 **This is an add-on for advanced users.** You need your own [Twilio](https://www.twilio.com) account with a payment card and a purchased phone number (a Czech number requires an ID and an address). You pay Twilio for the calls, a few cents a minute.
 
@@ -14,6 +14,8 @@ An MCP server that lets an assistant phone you and read a message out loud. Buil
 ## Installation
 
 The easiest way is to tell Miládka: "Install the phone add-on." She follows the [assistant guide](docs/pro-asistenta.md) (in Czech) and walks you through creating the Twilio account.
+
+The released server starts only from Miládka's add-on folder (`.addons/mcp-phone/`) in a folder that has `.miladka/VERSION`. Anywhere else it does not start and points to miladka.cz.
 
 ## License
 

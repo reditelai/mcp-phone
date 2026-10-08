@@ -19,6 +19,12 @@ test('one message, short; no whole threads', () => {
   assert.equal(limitForCall(mg('mg_list_accounts'), { verify: true }).input.verify, false);
 });
 
+test('nothing is written during a call, whatever the settings allow', () => {
+  for (const name of ['mg_save_draft', 'mg_send_message', 'mg_trash_message', 'mg_set_flags', 'mg_label_thread']) {
+    assert.ok('refuse' in limitForCall(mg(name), { account: 'prace' }), name);
+  }
+});
+
 test('other tools pass unchanged', () => {
   assert.deepEqual(limitForCall('mcp__phone_call__hang_up', {}), { input: {} });
 });

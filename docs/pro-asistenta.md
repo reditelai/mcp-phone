@@ -302,7 +302,8 @@ Při `tel_converse` server otevře na dobu hovoru malý most (WebSocket) a zavol
 - po rozloučení sama zavěsí,
 - **rozjede se, zatímco telefon zvoní**, takže první odpověď nečeká na start,
 - **nikdy nemlčí:** když sáhne po nástroji a ještě nic neřekla, most sám řekne „Moment, podívám se", po 8 vteřinách „Pořád hledám" a pak každých 15 vteřin „Ještě chvilku",
-- **poštu prohledává úsporně, hlídá to server:** jen jednu schránku (hledání ve všech odmítne), nejvýš 3 výsledky, jednu zprávu do 3000 znaků, celé vlákno vůbec.
+- **poštu prohledává úsporně, hlídá to server:** jen jednu schránku (hledání ve všech odmítne), nejvýš 3 výsledky, jednu zprávu do 3000 znaků, celé vlákno vůbec,
+- **nic nezapisuje, ani koncept** (hlídá to server, i kdyby ho nastavení povolilo). Co má majitel napsat nebo udělat, se v hovoru jen domluví a relace mu to zopakuje; koncept napíšeš ty po hovoru.
 
 Hovor platí Twilio (telefon, převod řeči) a Claude (relace jede na předplatném, ke kterému je Claude Code v počítači přihlášené; s klíčem `anthropic_api_key` v souboru s klíči na API).
 
@@ -348,7 +349,7 @@ Do `system/phone.json` přidej oddíl `conversation`:
 | `transcript_dir` | kam se ukládá přepis každého hovoru; v `system/`, aby se zálohoval | `system/hovory` |
 | `timings` | časy v přepisu: první slovo po otázce, běh nástrojů, start relace; na ladění rychlosti | `false` |
 | `vault_read` | relace smí číst poznámky | `true` |
-| `mcp_servers`, `allowed_tools` | další servery pro relaci a nástroje z nich, které smí použít. Pro poštu z Multigmailu stačí `mg_list_accounts`, `mg_search_threads` a `mg_get_message` (s předponou `mcp__multi-gmail__`); celé vlákno a hledání ve všech schránkách server za hovoru stejně odmítne. **Nikdy WhatsApp** - drží jedno spojení a druhá relace by ho shodila. Jen servery spouštěné z počítače (`command`/`args`). Konektory z claude.ai do hovoru dát nejde, třeba Google Calendar nebo Gmail. Kdo má poštu napojenou jen přes Claude, bez doplňku Multigmail, nemá ji v hovoru vůbec. Hovor pak umí jen poznámky. | žádné |
+| `mcp_servers`, `allowed_tools` | další servery pro relaci a nástroje z nich, které smí použít. Pro poštu z Multigmailu stačí `mg_list_accounts`, `mg_search_threads` a `mg_get_message` (s předponou `mcp__multi-gmail__`); celé vlákno, hledání ve všech schránkách a cokoli, co ve schránce něco mění (i koncept), server za hovoru stejně odmítne. **Nikdy WhatsApp** - drží jedno spojení a druhá relace by ho shodila. Jen servery spouštěné z počítače (`command`/`args`). Konektory z claude.ai do hovoru dát nejde, třeba Google Calendar nebo Gmail. Kdo má poštu napojenou jen přes Claude, bez doplňku Multigmail, nemá ji v hovoru vůbec. Hovor pak umí jen poznámky. | žádné |
 
 Pak `tel_reload_config` a zkušební rozhovor: `tel_converse` s `opening` „Ahoj, tady Miládka, zkouším rozhovor. Slyšíš mě?". Ověř s majitelem, že rozuměla, odpovídala včas a po rozloučení zavěsila.
 
@@ -358,7 +359,11 @@ Pak `tel_reload_config` a zkušební rozhovor: `tel_converse` s `opening` „Aho
 - **Kdy:** když je potřeba něco s majitelem probrat a nepočká to. Na jednosměrnou zprávu `tel_call`.
 - **`opening`** - první věta po zvednutí: kdo volá a proč.
 - **`context` - tahák k důvodu hovoru, tohle rozhoduje o rychlosti.** Na co je odpověď v taháku, odpoví relace za necelou vteřinu. Každé hledání za hovoru znamená vteřiny ticha. Když voláš kvůli mailu, dej do taháku: celý mail (od koho, kdy, předmět, co přesně píše, ve které schránce), co o odesílateli a věci víš z poznámek, a svůj návrh, co odpovědět nebo udělat. Jen k tomu, kvůli čemu voláš, ne přehled všeho (do 12 000 znaků).
-- **Po hovoru** dostaneš celý přepis, je uložený v `transcript_dir` a odkazuje na něj deník hovorů. Projdi ho: co majitel chtěl odeslat nebo změnit, připrav jako koncept nebo návrh a nech si to písemně potvrdit. Zapiš, co z hovoru plyne, tam, kam patří (deník, úkoly, lidé). **Přepis nemaž**, zůstává jako záznam. S `timings: true` jsou v přepisu i časy (za jak dlouho po otázce zaznělo první slovo, který nástroj běžel a jak dlouho, start relace): když majitel řekne, že něco trvalo, odtud se pozná proč.
+- **Po hovoru** dostaneš celý přepis, je uložený v `transcript_dir` a odkazuje na něj deník hovorů. Hned po něm:
+  1. Z přepisu sepiš, co se domluvilo: co napsat, komu, co udělat.
+  2. Koncepty mailů napiš ty, podle pravidel pro koncepty (podpis, vlákno, oslovení podle profilu člověka). Hovorová relace je psát nesmí.
+  3. Pošli majiteli krátké shrnutí ke schválení, kanálem, kterým s ním běžně píšeš. Odeslat smíš jen to, co výslovně potvrdí písemně.
+  4. Zapiš, co z hovoru plyne, tam, kam patří (deník, úkoly, lidé). **Přepis nemaž**, zůstává jako záznam. S `timings: true` jsou v přepisu i časy (za jak dlouho po otázce zaznělo první slovo, který nástroj běžel a jak dlouho, start relace): když majitel řekne, že něco trvalo, odtud se pozná proč.
 - Klidné hodiny a denní strop platí stejně jako u `tel_call`.
 
 ## Řešení problémů

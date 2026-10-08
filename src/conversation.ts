@@ -85,7 +85,7 @@ function systemPrompt(config: Config, vaultDir: string, opening: string, context
     'Speak the language of the conversation. Answer briefly, one to three sentences, the way people talk on the phone. No lists, headings, links, markdown or anything that cannot be said out loud; write numbers, dates and times the way they are spoken.',
     `When the owner picked up, they heard: "${opening}"`,
     'Answer from what you already know first: the reason for the call and its facts are below, and answering from them is instant. Every tool you run leaves the owner waiting in silence, so look things up only when the answer is not there.',
-    'You cannot send, change or delete anything during the call. When the owner asks for that, say you will prepare it and that they will confirm it in writing afterwards; the whole call is handed over as a transcript when it ends.',
+    'You cannot send, change or delete anything during the call, not even save a draft. When the owner wants a message written or something done, agree what and to whom, repeat it back in a sentence or two so they can say yes, and say you will prepare it right after the call for them to confirm in writing; the whole call is handed over as a transcript when it ends.',
     'Never read out passwords, keys or anything from .miladka/secrets.',
     'When the owner says goodbye or that this is all, say goodbye in one short sentence and call the hang_up tool. Do not hang up on your own otherwise.',
     `Today is ${new Date().toLocaleString('cs-CZ', { timeZone: config.settings.timezone })} (${config.settings.timezone}).`,
@@ -296,6 +296,18 @@ function shortName(name: string): string {
   return name.split('__').at(-1) ?? name;
 }
 
+/** Mail tools that change something in a mailbox. */
+const WRITING_TOOLS = new Set([
+  'mg_save_draft',
+  'mg_send_message',
+  'mg_trash_message',
+  'mg_set_flags',
+  'mg_label_message',
+  'mg_unlabel_message',
+  'mg_label_thread',
+  'mg_unlabel_thread',
+]);
+
 function clamp(value: unknown, max: number): number {
   return typeof value === 'number' && value > 0 ? Math.min(value, max) : max;
 }
@@ -308,6 +320,13 @@ function clamp(value: unknown, max: number): number {
  * the prompt. Returns the input to run with, or why it is refused.
  */
 export function limitForCall(name: string, input: Record<string, unknown>): { input: Record<string, unknown> } | { refuse: string } {
+  // The call session changes nothing, not even a draft: what the owner wants
+  // written is agreed in the call and written by the main session afterwards,
+  // with the notes, the draft rules and the owner's written consent (Karel,
+  // 8. 10. 2026). Kept here so that a setting cannot let it through.
+  if (WRITING_TOOLS.has(shortName(name))) {
+    return { refuse: 'Nothing is written during a call. Agree with the owner what to write and to whom, repeat it back, and say it will be prepared after the call for them to confirm.' };
+  }
   switch (shortName(name)) {
     case 'mg_search_threads':
       if (input['account'] === 'all') return { refuse: 'During a call search one mailbox only. Ask the owner which one if it is not clear.' };

@@ -47,11 +47,11 @@ export function registerConverseTool(server: McpServer, current: () => Config): 
         if (!config.settings.conversation.enabled) {
           throw new ToolError('conversation_off', 'Phone conversations are not set up (conversation.enabled). Use tel_call for a one-way message.');
         }
-        await preflight(config, true, urgent);
+        const left = await preflight(config, true, urgent);
         const owner = { number: config.settings.owner, name: config.settings.language.startsWith('cs') ? 'majitel' : 'owner', owner: true };
         const result = await converse(config, owner, opening ?? config.settings.conversation.greeting, context, hints);
         logCall(config, { who: owner.name, kind: 'rozhovor', info: result, transcript: result.transcript_file });
-        return asJson(result);
+        return asJson({ ...result, calls_left_today: left });
       }),
   );
 }
@@ -117,10 +117,10 @@ export function registerConverseWithTool(server: McpServer, current: () => Confi
           callee = { number: number!, name: number!, owner: false };
         }
         // Never during quiet hours: the urgent exception is the owner's alone.
-        await preflight(config, false, false);
+        const left = await preflight(config, false, false);
         const result = await converse(config, callee, `${conv.others_introduction} ${opening}`, task, hints);
         logCall(config, { who: callee.name, kind: 'rozhovor', info: result, transcript: result.transcript_file });
-        return asJson(result);
+        return asJson({ ...result, calls_left_today: left });
       }),
   );
 }

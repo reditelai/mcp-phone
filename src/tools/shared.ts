@@ -37,8 +37,13 @@ export async function runTool(work: () => Promise<ToolResponse>): Promise<ToolRe
 const WAIT_MS = 120_000;
 const POLL_MS = 4_000;
 
-/** Quiet hours and the daily limit: checked before anything reaches Twilio. */
-export async function preflight(config: Config, toOwner: boolean, urgent: boolean): Promise<void> {
+/**
+ * Quiet hours and the daily limit: checked before anything reaches Twilio.
+ * Every attempt counts, answered or not: an unanswered call disturbs too, and
+ * the limit is there so that nobody gets called over and over (Karel, 8. 10.
+ * 2026). Returns how many calls are left today after this one.
+ */
+export async function preflight(config: Config, toOwner: boolean, urgent: boolean): Promise<number> {
   const { settings, keys } = config;
   checkQuietHours(settings, toOwner, urgent);
   const today = await countCallsSince(keys, settings, startOfToday(settings.timezone));
@@ -48,16 +53,17 @@ export async function preflight(config: Config, toOwner: boolean, urgent: boolea
       `${today} calls have gone out today and the daily limit is ${settings.daily_limit}. No more calls today; use another channel.`,
     );
   }
+  return settings.daily_limit - today - 1;
 }
 
 /**
  * Every check, then the call, then waiting for how it ended. The order matters:
  * nothing reaches Twilio before all the limits have passed.
  */
-export async function call(config: Config, to: string, toOwner: boolean, message: string, urgent: boolean, wait: boolean): Promise<CallInfo & { meaning: string }> {
+export async function call(config: Config, to: string, toOwner: boolean, message: string, urgent: boolean, wait: boolean): Promise<CallInfo & { meaning: string; calls_left_today: number }> {
   const { settings, keys } = config;
   const text = checkMessage(settings, message);
-  await preflight(config, toOwner, urgent);
+  const left = await preflight(config, toOwner, urgent);
 
   let info = await placeCall(keys, settings, to, text);
   if (wait) {
@@ -67,5 +73,5 @@ export async function call(config: Config, to: string, toOwner: boolean, message
       info = await fetchCall(keys, info.sid);
     }
   }
-  return { ...info, meaning: explain(info) };
+  return { ...info, meaning: explain(info), calls_left_today: left };
 }

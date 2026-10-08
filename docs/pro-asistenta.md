@@ -237,6 +237,8 @@ Klidné hodiny, denní strop a délku vzkazu hlídá server sám. Když hovor od
 | `no-answer`, `busy` | Nezvedl nebo odmítl. Nic se nepřehrálo. Napiš mu, nevolej hned znovu. |
 | `failed` | Hovor se nespojil. Napiš mu a podívej se na chybu (Řešení problémů). |
 
+Výsledek každého volání nese `calls_left_today`: kolik hovorů dnes ještě zbývá do denního stropu. Počítá se každý pokus, i nezvednutý nebo obsazený. Když zbývá málo, řekni to majiteli dřív, než narazíš.
+
 Každý hovor zapíše server sám do deníku hovorů (`call_log`, výchozí `system/hovory/hovory.md`): kdy, komu, celý vzkaz a jak dopadl. Zálohuje se s vaultem, takže majitel i po čase dohledá, co komu Miládka řekla. Do svého deníku si poznač jen to, co z hovoru plyne.
 
 ## Volání na jiné číslo

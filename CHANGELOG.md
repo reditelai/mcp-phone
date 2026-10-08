@@ -5,6 +5,7 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+- Výsledek každého volání nese `calls_left_today`. Do denního stropu se dál počítá každý pokus, i nezvednutý (Karel 8. 10. 2026: i nezvednutý hovor vyruší).
 - Doladění po prvním hovoru s někým jiným (Věrka 8. 10. 2026): `hints` u obou rozhovorů (vlastní jména pro rozpoznávání řeči), Miládka mluví v ženském rodě, nezmiňuje zadání ani seznam, neříká „bohužel“, po úvodu znovu nezdraví, k samotnému křestnímu jménu nedává „pane“. Rozloučení je v přepisu před zavěšením, jak zaznělo.
 - Rozhovor s někým jiným (`tel_converse_with`, Karel 8. 10. 2026): zavolá a domluví jednu věc podle zadání majitele. Program vynucuje: každý hovor odkliknout, jen jméno z `recipients` nebo číslo se zapnutým `call_other_numbers`, relace v prázdné složce bez vaultu, osobnosti a jiných MCP serverů, jen zavěsit, úvod z `others_introduction` musí říct, že volá AI, nikdy v klidných hodinách. Přepis a deník s jménem toho člověka.
 - Deník hovorů (`call_log`, výchozí `system/hovory/hovory.md`): u každého hovoru kdy, komu, celý vzkaz a jak dopadl, u rozhovoru odkaz na přepis. Přepisy ve `system/hovory/` (dřív `vstupy/hovory/`), aby se zálohovaly, soubor nese datum, čas a s kým (`2026-10-08-1512-majitel.md`). Časy v přepisu jen se zapnutým `conversation.timings` (Karel 8. 10. 2026).

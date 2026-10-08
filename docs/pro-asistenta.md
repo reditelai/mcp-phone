@@ -28,6 +28,7 @@ Když server ještě nainstalovaný není, čteš tenhle soubor nejspíš z GitH
 5. **Klíče od Twilia nechtěj do chatu.** Co se napíše do rozhovoru, zůstane v přepisu. Klíče vloží uživatel sám do souboru v editoru (krok 6). Když je do chatu přesto napíše, viz „Klíč skončil v chatu".
 6. **Soubor s klíči (`hesla.json`) nikdy nečti** - ani nástrojem na čtení souborů, ani `cat`. Jestli jsou klíče vyplněné a fungují, řekne kontrola z kroku 7. Nastavení (`system/phone.json`) klíče nemá, to čti a upravuj běžně.
 7. **Složku `.miladka/secrets/` vynech i při hledání** (`grep -r --exclude-dir=secrets`).
+8. **Automatický režim oprávnění může některé kroky zablokovat**, typicky zápis do `.miladka/secrets/` nebo kopírování programu. Řekni to uživateli na začátku. Když se to stane, neobcházej to jinou cestou: požádej ho o dočasné přepnutí na ruční schvalování (Accept edits nestačí, kroky 3 a 6 jsou příkazy), krok dokonči a pak ať režim vrátí.
 
 ### Klíč skončil v chatu
 
@@ -342,7 +343,7 @@ Do `system/phone.json` přidej oddíl `conversation`:
 | `persona_file` | kdo jsi a jak mluvíš | `CLAUDE.md` |
 | `transcript_dir` | kam se ukládá přepis každého hovoru | `vstupy/hovory` |
 | `vault_read` | relace smí číst poznámky | `true` |
-| `mcp_servers`, `allowed_tools` | další servery pro relaci a nástroje z nich, které smí použít (třeba čtení pošty z Multigmailu). **Nikdy WhatsApp** - drží jedno spojení a druhá relace by ho shodila. | žádné |
+| `mcp_servers`, `allowed_tools` | další servery pro relaci a nástroje z nich, které smí použít (třeba čtení pošty z Multigmailu). **Nikdy WhatsApp** - drží jedno spojení a druhá relace by ho shodila. Jen servery spouštěné z počítače (`command`/`args`). Konektory z claude.ai do hovoru dát nejde, třeba Google Calendar nebo Gmail. Kdo má poštu napojenou jen přes Claude, bez doplňku Multigmail, nemá ji v hovoru vůbec. Hovor pak umí jen poznámky. | žádné |
 
 Pak `tel_reload_config` a zkušební rozhovor: `tel_converse` s `opening` „Ahoj, tady Miládka, zkouším rozhovor. Slyšíš mě?". Ověř s majitelem, že rozuměla, odpovídala včas a po rozloučení zavěsila.
 

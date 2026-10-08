@@ -258,7 +258,7 @@ export async function converse(config: Config, opening: string, context: string)
     }
     if (!FINAL.has(info.status)) endedBy = 'time_limit';
 
-    return { ...info, transcript, transcript_file: writeTranscript(config, vaultDir, context, transcript), ended_by: endedBy };
+    return { ...info, transcript, transcript_file: writeTranscript(config, vaultDir, context, transcript, settings.language.startsWith('cs') ? 'majitel' : 'owner'), ended_by: endedBy };
   } finally {
     session?.close();
     sockets.close();
@@ -267,7 +267,13 @@ export async function converse(config: Config, opening: string, context: string)
   }
 }
 
-function writeTranscript(config: Config, vaultDir: string, context: string, transcript: Line[]): string | null {
+/** A name as a file name part: lower case, no diacritics, dashes. */
+function slug(name: string): string {
+  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'hovor';
+}
+
+/** The transcript file is named after when and with whom (Karel, 8. 10. 2026). */
+function writeTranscript(config: Config, vaultDir: string, context: string, transcript: Line[], who: string): string | null {
   if (!transcript.some((line) => line.who !== 'tool')) return null;
   const now = new Date();
   const stamp = new Intl.DateTimeFormat('sv-SE', { timeZone: config.settings.timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -276,7 +282,7 @@ function writeTranscript(config: Config, vaultDir: string, context: string, tran
     .replace(':', '');
   const dir = resolve(vaultDir, config.settings.conversation.transcript_dir);
   mkdirSync(dir, { recursive: true });
-  const file = join(dir, `${stamp}-hovor.md`);
+  const file = join(dir, `${stamp}-${slug(who)}.md`);
   const lines = transcript.map((line) => (line.who === 'tool' ? `_(nástroj ${line.text})_` : `**${line.who === 'owner' ? 'Majitel' : 'Asistentka'}:** ${line.text}`));
   writeFileSync(file, [`# Hovor ${stamp}`, '', context.trim() === '' ? '' : `Proč: ${context.trim()}\n`, ...lines, ''].join('\n'));
   return relative(vaultDir, file);

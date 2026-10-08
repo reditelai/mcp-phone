@@ -346,7 +346,7 @@ Do `system/phone.json` přidej oddíl `conversation`:
 | `max_minutes` | nejdelší hovor, pak Twilio zavěsí | `10` |
 | `vault_dir` | složka, kterou relace čte | složka Miládky |
 | `persona_file` | kdo jsi a jak mluvíš | `CLAUDE.md` |
-| `transcript_dir` | kam se ukládá přepis každého hovoru; v `system/`, aby se zálohoval | `system/hovory` |
+| `transcript_dir` | kam se ukládá přepis každého hovoru, soubor `RRRR-MM-DD-HHMM-kdo.md` (u rozhovoru s majitelem `majitel`); v `system/`, aby se zálohoval | `system/hovory` |
 | `timings` | časy v přepisu: první slovo po otázce, běh nástrojů, start relace; na ladění rychlosti | `false` |
 | `vault_read` | relace smí číst poznámky | `true` |
 | `mcp_servers`, `allowed_tools` | další servery pro relaci a nástroje z nich, které smí použít. Pro poštu z Multigmailu stačí `mg_list_accounts`, `mg_search_threads` a `mg_get_message` (s předponou `mcp__multi-gmail__`); celé vlákno, hledání ve všech schránkách a cokoli, co ve schránce něco mění (i koncept), server za hovoru stejně odmítne. **Nikdy WhatsApp** - drží jedno spojení a druhá relace by ho shodila. Jen servery spouštěné z počítače (`command`/`args`). Konektory z claude.ai do hovoru dát nejde, třeba Google Calendar nebo Gmail. Kdo má poštu napojenou jen přes Claude, bez doplňku Multigmail, nemá ji v hovoru vůbec. Hovor pak umí jen poznámky. | žádné |

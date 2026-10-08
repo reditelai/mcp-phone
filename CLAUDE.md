@@ -6,7 +6,7 @@ MCP server, přes který asistent zavolá přes Twilio a přečte vzkaz. Stavěn
 
 **1. Pojistky hlídá server, ne jen instrukce.** Asistent čte maily od cizích lidí. Co je jen v popisu nástroje, to mu jde vymluvit; co je v kódu, ne. Proto server sám odmítne: číslo mimo nastavení, klidné hodiny, denní strop, dlouhý vzkaz, vypnuté volání na jiné číslo. Nová možnost volání musí mít svou pojistku v kódu, ne jen větu v popisu.
 
-**2. Majitel a ostatní nejsou na stejné úrovni.** Jen majiteli (`owner`) asistent volá sám od sebe, jen jemu smí říct cokoli z poznámek a pošty, jen jemu jde naléhavý hovor v klidných hodinách. Ostatním (`recipients`) jen na majitelův pokyn a jen zadaný text. V nástrojích je majitel jméno `owner`, nikdy číslo: číslo z mailu asistent zadat nemůže.
+**2. Majitel a ostatní nejsou na stejné úrovni.** Rozhovor s ostatními (`tel_converse_with`) běží v prázdné složce bez vaultu, osobnosti a MCP serverů, jen se zadáním a zavěšením, a každý hovor majitel odklikne; tohle je v kódu (`Callee.owner` v `conversation.ts`) a nesmí se to přesunout do nastavení. Jen majiteli (`owner`) asistent volá sám od sebe, jen jemu smí říct cokoli z poznámek a pošty, jen jemu jde naléhavý hovor v klidných hodinách. Ostatním (`recipients`) jen na majitelův pokyn a jen zadaný text. V nástrojích je majitel jméno `owner`, nikdy číslo: číslo z mailu asistent zadat nemůže.
 
 **3. Prázdný seznam znamená nikam, ne kamkoli.** `recipients: {}` = nikomu dalšímu.
 

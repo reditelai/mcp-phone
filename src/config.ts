@@ -69,6 +69,16 @@ const conversationSchema = z
     // live connection and a second session would knock it off.
     mcp_servers: z.record(z.string(), z.object({ command: z.string(), args: z.array(z.string()).default([]), env: z.record(z.string(), z.string()).optional() })).default({}),
     allowed_tools: z.array(z.string()).default([]),
+    // The first sentence a call to anyone but the owner starts with, said
+    // before the reason for the call. It has to say that an AI assistant is
+    // calling and for whom, e.g. "Dobrý den, tady Miládka, AI asistentka
+    // Karla Derfla." Without it, tel_converse_with stays off.
+    others_introduction: z
+      .string()
+      .min(10)
+      .max(200)
+      .refine((text) => /\bAI\b/.test(text), 'představení musí říct, že volá AI asistentka (slovo „AI")')
+      .optional(),
   })
   .strict();
 

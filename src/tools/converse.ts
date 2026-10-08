@@ -34,9 +34,14 @@ export function registerConverseTool(server: McpServer, current: () => Config): 
         opening: z.string().min(1).max(300).optional().describe('First sentence on pick-up. Defaults to the greeting in the settings.'),
         context: z.string().max(12000).default('').describe('Everything about the reason for the call: the message, what the notes say, your proposal.'),
         urgent: z.boolean().default(false).describe('Only when it cannot wait until the quiet hours end.'),
+        hints: z
+          .array(z.string().min(1).max(60))
+          .max(50)
+          .optional()
+          .describe('Names the speech recognition should expect: people, places, companies from the context, written as they are spelled.'),
       }),
     },
-    async ({ opening, context, urgent }) =>
+    async ({ opening, context, urgent, hints }) =>
       runTool(async () => {
         const config = current();
         if (!config.settings.conversation.enabled) {
@@ -44,7 +49,7 @@ export function registerConverseTool(server: McpServer, current: () => Config): 
         }
         await preflight(config, true, urgent);
         const owner = { number: config.settings.owner, name: config.settings.language.startsWith('cs') ? 'majitel' : 'owner', owner: true };
-        const result = await converse(config, owner, opening ?? config.settings.conversation.greeting, context);
+        const result = await converse(config, owner, opening ?? config.settings.conversation.greeting, context, hints);
         logCall(config, { who: owner.name, kind: 'rozhovor', info: result, transcript: result.transcript_file });
         return asJson(result);
       }),
@@ -76,9 +81,14 @@ export function registerConverseWithTool(server: McpServer, current: () => Confi
         number: z.string().regex(/^\+[1-9]\d{7,14}$/).optional().describe('Another number, international format, only with call_other_numbers on.'),
         task: z.string().min(20).max(4000).describe('What to find out or agree, what may be offered, what must not be said.'),
         opening: z.string().min(1).max(200).describe('One sentence after the introduction: why you call, e.g. "Volám kvůli zítřejšímu pivu."'),
+        hints: z
+          .array(z.string().min(1).max(60))
+          .max(50)
+          .optional()
+          .describe('Names the speech recognition should expect: people, places, companies from the context, written as they are spelled.'),
       }),
     },
-    async ({ to, number, task, opening }) =>
+    async ({ to, number, task, opening, hints }) =>
       runTool(async () => {
         const config = current();
         const { settings } = config;
@@ -108,7 +118,7 @@ export function registerConverseWithTool(server: McpServer, current: () => Confi
         }
         // Never during quiet hours: the urgent exception is the owner's alone.
         await preflight(config, false, false);
-        const result = await converse(config, callee, `${conv.others_introduction} ${opening}`, task);
+        const result = await converse(config, callee, `${conv.others_introduction} ${opening}`, task, hints);
         logCall(config, { who: callee.name, kind: 'rozhovor', info: result, transcript: result.transcript_file });
         return asJson(result);
       }),

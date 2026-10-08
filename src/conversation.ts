@@ -33,7 +33,8 @@ import { vaultRoot } from './location.js';
 import { FINAL, fetchCall, placeTwimlCall, type CallInfo } from './twilio.js';
 
 export interface Line {
-  who: 'owner' | 'assistant';
+  /** 'tool' lines say which tool ran during the call and how long it took. */
+  who: 'owner' | 'assistant' | 'tool';
   text: string;
 }
 
@@ -77,18 +78,22 @@ function readable(vaultDir: string, path: unknown): boolean {
   return !parts.includes('secrets') && !parts.includes('.git') && !parts.some((part) => part.startsWith('.env'));
 }
 
-function systemPrompt(config: Config, vaultDir: string, context: string): string {
+function systemPrompt(config: Config, vaultDir: string, opening: string, context: string): string {
   const conv = config.settings.conversation;
   const parts = [
     'You are on a phone call with the owner, the person you assist. Everything you write is read out loud to them by a speech synthesizer and their speech reaches you as text.',
     'Speak the language of the conversation. Answer briefly, one to three sentences, the way people talk on the phone. No lists, headings, links, markdown or anything that cannot be said out loud; write numbers, dates and times the way they are spoken.',
-    'Before looking something up, say a short sentence first ("moment, podívám se") so the line is not silent.',
+    `When the owner picked up, they heard: "${opening}"`,
+    'Answer from what you already know first: the reason for the call and its facts are below, and answering from them is instant. Every tool you run leaves the owner waiting in silence, so look things up only when the answer is not there.',
     'You cannot send, change or delete anything during the call. When the owner asks for that, say you will prepare it and that they will confirm it in writing afterwards; the whole call is handed over as a transcript when it ends.',
     'Never read out passwords, keys or anything from .miladka/secrets.',
     'When the owner says goodbye or that this is all, say goodbye in one short sentence and call the hang_up tool. Do not hang up on your own otherwise.',
     `Today is ${new Date().toLocaleString('cs-CZ', { timeZone: config.settings.timezone })} (${config.settings.timezone}).`,
   ];
   if (conv.vault_read) parts.push(`The owner's notes are in ${vaultDir}; you may read them with Read, Grep and Glob.`);
+  if (conv.allowed_tools.some((name) => shortName(name).startsWith('mg_'))) {
+    parts.push('Mail during a call: search one mailbox, newest first, at most three results, then read only the one message you need. If it is not clear which mailbox, ask the owner first. Searching every mailbox and reading whole threads are not available during a call.');
+  }
   if (context.trim() !== '') parts.push(`Why this call was placed: ${context.trim()}`);
   const persona = resolve(vaultDir, conv.persona_file);
   if (readable(vaultDir, persona) && existsSync(persona)) {
@@ -181,9 +186,12 @@ export async function converse(config: Config, opening: string, context: string)
 
   let finished: () => void = () => {};
   const ended = new Promise<void>((done) => (finished = done));
+  // Started while the phone rings, attached once our call connects.
+  let session: ReturnType<typeof startSession> | null = null;
+  let connected = false;
 
   sockets.on('connection', (ws: WebSocket) => {
-    let session: ReturnType<typeof startSession> | null = null;
+    let mine = false;
     ws.on('message', (data) => {
       let message: Record<string, unknown>;
       try {
@@ -193,22 +201,23 @@ export async function converse(config: Config, opening: string, context: string)
       }
       if (message['type'] === 'setup') {
         // Only our own call, from our number to the owner.
-        if (message['callSid'] !== ourCall || message['from'] !== settings.from || message['to'] !== settings.owner || session !== null) {
+        if (message['callSid'] !== ourCall || message['from'] !== settings.from || message['to'] !== settings.owner || connected || session === null) {
           ws.close();
           return;
         }
+        connected = true;
+        mine = true;
         endedBy = 'owner';
-        session = startSession(config, vaultDir, claude, context, ws, transcript, () => {
-          endedBy = 'assistant';
-        });
-      } else if (message['type'] === 'prompt' && message['last'] === true && session !== null) {
+        session.attach(ws);
+      } else if (message['type'] === 'prompt' && message['last'] === true && mine) {
         const text = String(message['voicePrompt'] ?? '').trim();
-        if (text !== '') session.say(text);
-      } else if (message['type'] === 'interrupt' && session !== null) {
-        session.interrupt();
+        if (text !== '') session?.say(text);
+      } else if (message['type'] === 'interrupt' && mine) {
+        session?.interrupt();
       }
     });
     ws.on('close', () => {
+      if (!mine) return;
       session?.close();
       finished();
     });
@@ -234,6 +243,9 @@ export async function converse(config: Config, opening: string, context: string)
     const twiml =
       `<Response><Connect><ConversationRelay url="${escapeXml(relay)}" language="${escapeXml(settings.language)}" ` +
       `ttsProvider="ElevenLabs" voice="${escapeXml(voice)}" welcomeGreeting="${escapeXml(opening)}" /></Connect></Response>`;
+    session = startSession(config, vaultDir, claude, opening, context, transcript, () => {
+      endedBy = 'assistant';
+    });
     let info = await placeTwimlCall(keys, settings, settings.owner, twiml, conv.max_minutes * 60);
     ourCall = info.sid;
 
@@ -248,6 +260,7 @@ export async function converse(config: Config, opening: string, context: string)
 
     return { ...info, transcript, transcript_file: writeTranscript(config, vaultDir, context, transcript), ended_by: endedBy };
   } finally {
+    session?.close();
     sockets.close();
     server.close();
     tunnel?.kill();
@@ -255,7 +268,7 @@ export async function converse(config: Config, opening: string, context: string)
 }
 
 function writeTranscript(config: Config, vaultDir: string, context: string, transcript: Line[]): string | null {
-  if (transcript.length === 0) return null;
+  if (!transcript.some((line) => line.who !== 'tool')) return null;
   const now = new Date();
   const stamp = new Intl.DateTimeFormat('sv-SE', { timeZone: config.settings.timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
     .format(now)
@@ -264,18 +277,86 @@ function writeTranscript(config: Config, vaultDir: string, context: string, tran
   const dir = resolve(vaultDir, config.settings.conversation.transcript_dir);
   mkdirSync(dir, { recursive: true });
   const file = join(dir, `${stamp}-hovor.md`);
-  const lines = transcript.map((line) => `**${line.who === 'owner' ? 'Majitel' : 'Asistentka'}:** ${line.text}`);
+  const lines = transcript.map((line) => (line.who === 'tool' ? `_(nástroj ${line.text})_` : `**${line.who === 'owner' ? 'Majitel' : 'Asistentka'}:** ${line.text}`));
   writeFileSync(file, [`# Hovor ${stamp}`, '', context.trim() === '' ? '' : `Proč: ${context.trim()}\n`, ...lines, ''].join('\n'));
   return relative(vaultDir, file);
 }
 
-/** The Claude session behind one call. Exported for the isolation test. */
-export function startSession(config: Config, vaultDir: string, claude: string, context: string, ws: WebSocket, transcript: Line[], onHangUp: () => void) {
+/** What the bridge says on its own while a tool runs, by language of the call. */
+const FILLERS: Record<string, { first: string; still: string; again: string }> = {
+  cs: { first: 'Moment, podívám se.', still: 'Pořád hledám.', again: 'Ještě chvilku.' },
+  en: { first: 'One moment, let me look.', still: 'Still looking.', again: 'Just a moment more.' },
+};
+/** First "still looking" after this long, then again every AGAIN_MS (Karel, 8. 10. 2026: "klidně dřív"). */
+const STILL_MS = 8_000;
+const AGAIN_MS = 15_000;
+
+/** A tool's name without the mcp__<server>__ prefix. */
+function shortName(name: string): string {
+  return name.split('__').at(-1) ?? name;
+}
+
+function clamp(value: unknown, max: number): number {
+  return typeof value === 'number' && value > 0 ? Math.min(value, max) : max;
+}
+
+/**
+ * Limits on tools during a call. The owner waits in silence for every second a
+ * tool runs, so a search stays in one mailbox and short, and a message is read
+ * on its own rather than with its whole thread (Karel, 8. 10. 2026: "ty
+ * odpovědi musí být co nejrychlejší"). Enforced here, not only asked for in
+ * the prompt. Returns the input to run with, or why it is refused.
+ */
+export function limitForCall(name: string, input: Record<string, unknown>): { input: Record<string, unknown> } | { refuse: string } {
+  switch (shortName(name)) {
+    case 'mg_search_threads':
+      if (input['account'] === 'all') return { refuse: 'During a call search one mailbox only. Ask the owner which one if it is not clear.' };
+      return { input: { ...input, max_results: clamp(input['max_results'], 3) } };
+    case 'mg_get_message':
+      return { input: { ...input, max_body_length: clamp(input['max_body_length'], 3000) } };
+    case 'mg_get_thread':
+      return { refuse: 'A whole thread takes too long during a call. Read the one message you need with mg_get_message.' };
+    case 'mg_list_accounts':
+      return { input: { ...input, verify: false } };
+    default:
+      return { input };
+  }
+}
+
+/**
+ * The Claude session behind one call. It starts while the phone rings: a
+ * warm-up turn, never heard, starts Claude Code and the MCP servers and loads
+ * the prompt, so the first answer does not wait for any of it. Exported for
+ * the isolation test.
+ */
+export function startSession(config: Config, vaultDir: string, claude: string, opening: string, context: string, transcript: Line[], onHangUp: () => void) {
   const conv = config.settings.conversation;
+  const filler = FILLERS[config.settings.language.slice(0, 2)] ?? FILLERS['en']!;
   const pending: Array<string | null> = [];
   let wake: (() => void) | null = null;
   let hangUp = false;
-  let spoken = '';
+  let ws: WebSocket | null = null;
+  let warming = true;
+  let ready: () => void = () => {};
+  const warmed = new Promise<void>((done) => (ready = done));
+  let turnText = ''; // spoken since the last flush, not yet in the transcript
+  let turnAll = ''; // everything said in this turn, for the hang-up delay
+  let saidInTurn = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const running = new Map<string, { name: string; started: number }>();
+  const startedAt = Date.now();
+  let askedAt: number | null = null; // when the owner's last question arrived, until the first word of the answer
+  const seconds = (since: number): string => ((Date.now() - since) / 1000).toFixed(1).replace('.', ',');
+  /** A timing line in the transcript, only with conversation.timings on. */
+  const timing = (text: string): void => {
+    if (conv.timings) transcript.push({ who: 'tool', text });
+  };
+  /** The first sound after a question is what the owner hears as waiting: logged for tuning. */
+  const firstSound = (): void => {
+    if (askedAt === null) return;
+    timing(`první slovo za ${seconds(askedAt)} s`);
+    askedAt = null;
+  };
 
   async function* input(): AsyncGenerator<SDKUserMessage> {
     for (;;) {
@@ -292,12 +373,47 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
     w?.();
   };
 
+  const send = (payload: object): void => {
+    if (!warming && ws !== null && ws.readyState === 1) ws.send(JSON.stringify(payload));
+  };
+  /** A whole sentence from the bridge itself, spoken at once. */
+  const speak = (text: string): void => {
+    firstSound();
+    send({ type: 'text', token: text, last: true });
+    transcript.push({ who: 'assistant', text });
+    turnAll += text;
+    saidInTurn = true;
+  };
+  /** Have Twilio speak what has streamed so far, before a tool runs. */
+  const flush = (): void => {
+    if (turnText.trim() !== '') {
+      send({ type: 'text', token: '', last: true });
+      if (!warming) transcript.push({ who: 'assistant', text: turnText.trim() });
+    }
+    turnText = '';
+  };
+  const stopTimer = (): void => {
+    if (timer !== null) clearTimeout(timer);
+    timer = null;
+  };
+  const startTimer = (): void => {
+    stopTimer();
+    const again = (): void => {
+      speak(filler.again);
+      timer = setTimeout(again, AGAIN_MS);
+    };
+    timer = setTimeout(() => {
+      speak(filler.still);
+      timer = setTimeout(again, AGAIN_MS);
+    }, STILL_MS);
+  };
+
   const hangUpServer = createSdkMcpServer({
     name: 'phone_call',
     tools: [
       tool('hang_up', 'End the phone call after your last sentence has been spoken. Only after saying goodbye.', {}, async () => {
         hangUp = true;
-        return { content: [{ type: 'text', text: 'The call ends once your last sentence has been spoken.' }] };
+        return { content: [{ type: 'text', text: 'The call ends once your last sentence has been spoken. Say nothing more.' }] };
       }),
     ],
   });
@@ -320,13 +436,15 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
       tools: readTools,
       disallowedTools: ['Read(./.miladka/secrets/**)', 'Read(**/secrets/**)'],
       includePartialMessages: true,
-      systemPrompt: systemPrompt(config, vaultDir, context),
+      systemPrompt: systemPrompt(config, vaultDir, opening, context),
       canUseTool: async (name, input) => {
         if (readTools.includes(name)) {
           const path = input['file_path'] ?? input['path'];
           return readable(vaultDir, path) ? { behavior: 'allow', updatedInput: input } : { behavior: 'deny', message: 'Outside the notes or in the secrets folder.' };
         }
-        return allowed.has(name) ? { behavior: 'allow', updatedInput: input } : { behavior: 'deny', message: 'Not available during a phone call.' };
+        if (!allowed.has(name)) return { behavior: 'deny', message: 'Not available during a phone call.' };
+        const limited = limitForCall(name, input);
+        return 'refuse' in limited ? { behavior: 'deny', message: limited.refuse } : { behavior: 'allow', updatedInput: limited.input };
       },
     },
   });
@@ -334,33 +452,90 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
   (async () => {
     for await (const message of session) {
       if (message.type === 'stream_event') {
-        const event = message.event as { type?: string; delta?: { type?: string; text?: string } };
+        const event = message.event as {
+          type?: string;
+          delta?: { type?: string; text?: string };
+          content_block?: { type?: string; id?: string; name?: string };
+        };
         if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta' && event.delta.text) {
-          spoken += event.delta.text;
-          ws.send(JSON.stringify({ type: 'text', token: event.delta.text, last: false }));
+          // After hang_up the goodbye has been said; anything more would follow it.
+          if (hangUp) continue;
+          stopTimer();
+          if (!warming) firstSound();
+          turnText += event.delta.text;
+          turnAll += event.delta.text;
+          saidInTurn = true;
+          send({ type: 'text', token: event.delta.text, last: false });
+        } else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
+          const name = event.content_block.name ?? '';
+          if (event.content_block.id !== undefined) running.set(event.content_block.id, { name, started: Date.now() });
+          // The line must not go quiet while a tool runs: what was said so far
+          // is spoken now, and when nothing was, the bridge says it is looking.
+          if (!warming && shortName(name) !== 'hang_up') {
+            if (turnText.trim() !== '') flush();
+            else if (!saidInTurn) speak(filler.first);
+            startTimer();
+          }
+        }
+      } else if (message.type === 'user') {
+        const content = message.message.content;
+        if (Array.isArray(content)) {
+          for (const block of content as Array<{ type?: string; tool_use_id?: string; is_error?: boolean }>) {
+            const started = block.type === 'tool_result' && block.tool_use_id !== undefined ? running.get(block.tool_use_id) : undefined;
+            if (started === undefined || warming) continue;
+            running.delete(block.tool_use_id!);
+            timing(`${shortName(started.name)}, ${seconds(started.started)} s${block.is_error === true ? ', odmítnuto nebo chyba' : ''}`);
+          }
         }
       } else if (message.type === 'result') {
-        ws.send(JSON.stringify({ type: 'text', token: '', last: true }));
-        if (spoken.trim() !== '') transcript.push({ who: 'assistant', text: spoken.trim() });
-        const said = spoken;
-        spoken = '';
+        stopTimer();
+        if (warming) {
+          timing(`Miládka připravená za ${seconds(startedAt)} s od vytáčení`);
+          warming = false;
+          turnText = '';
+          turnAll = '';
+          saidInTurn = false;
+          ready();
+          continue;
+        }
+        send({ type: 'text', token: '', last: true });
+        if (turnText.trim() !== '') transcript.push({ who: 'assistant', text: turnText.trim() });
+        const said = turnAll;
+        turnText = '';
+        turnAll = '';
+        saidInTurn = false;
         if (hangUp) {
           onHangUp();
-          setTimeout(() => ws.send(JSON.stringify({ type: 'end' })), speakingMs(said));
+          setTimeout(() => send({ type: 'end' }), speakingMs(said));
         }
       }
     }
-  })().catch(() => ws.close());
+  })()
+    .catch(() => ws?.close())
+    .finally(() => ready());
+
+  // Never heard: it only gets Claude Code, the MCP servers and the prompt ready.
+  push('(The phone is still ringing; the owner has not picked up yet. Reply with only "OK".)');
 
   return {
+    warmed,
+    attach(socket: WebSocket): void {
+      ws = socket;
+    },
     say(text: string): void {
       transcript.push({ who: 'owner', text });
+      askedAt ??= Date.now();
       push(text);
     },
     interrupt(): void {
+      stopTimer();
       void session.interrupt().catch(() => {});
     },
     close(): void {
+      stopTimer();
+      // What was being said when the call ended still belongs in the transcript.
+      if (!warming && turnText.trim() !== '') transcript.push({ who: 'assistant', text: turnText.trim() });
+      turnText = '';
       push(null);
     },
   };

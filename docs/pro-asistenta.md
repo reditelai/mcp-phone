@@ -145,6 +145,7 @@ Všechny klíče nastavení:
 | `daily_limit` | nejvýš hovorů za den | `10` |
 | `max_message_length` | nejdelší vzkaz ve znacích | `500` |
 | `passwords_file` | jiné umístění souboru s klíči | v Miládce netřeba |
+| `call_log` | deník hovorů: u každého hovoru kdy, komu, text vzkazu a jak dopadl, u rozhovoru odkaz na přepis; `null` ho vypne | `system/hovory/hovory.md` |
 
 Hlas `ElevenLabs.…` je u Twilia zatím ve zkušebním provozu. Kdyby přestal fungovat, náhradní ženské hlasy v pořadí: `ElevenLabs.7JbZPqJGWUfXXBim0T8U`, `ElevenLabs.OAAjJsQDvpg3sVjiLgyl`, nakonec `Google.cs-CZ-Wavenet-B`. Hlas se vybírá poslechem v telefonu, ne podle ukázky na webu.
 
@@ -236,7 +237,7 @@ Klidné hodiny, denní strop a délku vzkazu hlídá server sám. Když hovor od
 | `no-answer`, `busy` | Nezvedl nebo odmítl. Nic se nepřehrálo. Napiš mu, nevolej hned znovu. |
 | `failed` | Hovor se nespojil. Napiš mu a podívej se na chybu (Řešení problémů). |
 
-Krátce si poznač, komu a proč jsi volala, tam, kde vedeš deník.
+Každý hovor zapíše server sám do deníku hovorů (`call_log`, výchozí `system/hovory/hovory.md`): kdy, komu, celý vzkaz a jak dopadl. Zálohuje se s vaultem, takže majitel i po čase dohledá, co komu Miládka řekla. Do svého deníku si poznač jen to, co z hovoru plyne.
 
 ## Volání na jiné číslo
 
@@ -298,7 +299,10 @@ Při `tel_converse` server otevře na dobu hovoru malý most (WebSocket) a zavol
 - nenačte žádné nastavení, háčky ani MCP servery ze souborů - jen čtení poznámek ve vaultu (mimo `.miladka/secrets/`, `.git` a `.env`), nástroj „zavěsit" a servery, které jí výslovně dáš v nastavení,
 - **nemůže nic odeslat, změnit ani smazat**; co majitel v hovoru chce, připraví jako návrh a ty to po hovoru dotáhneš s jeho písemným souhlasem,
 - bere si osobnost z `persona_file` (výchozí `CLAUDE.md` ve vaultu), takže mluví jako ty,
-- po rozloučení sama zavěsí.
+- po rozloučení sama zavěsí,
+- **rozjede se, zatímco telefon zvoní**, takže první odpověď nečeká na start,
+- **nikdy nemlčí:** když sáhne po nástroji a ještě nic neřekla, most sám řekne „Moment, podívám se", po 8 vteřinách „Pořád hledám" a pak každých 15 vteřin „Ještě chvilku",
+- **poštu prohledává úsporně, hlídá to server:** jen jednu schránku (hledání ve všech odmítne), nejvýš 3 výsledky, jednu zprávu do 3000 znaků, celé vlákno vůbec.
 
 Hovor platí Twilio (telefon, převod řeči) a Claude (relace jede na předplatném, ke kterému je Claude Code v počítači přihlášené; s klíčem `anthropic_api_key` v souboru s klíči na API).
 
@@ -341,9 +345,10 @@ Do `system/phone.json` přidej oddíl `conversation`:
 | `max_minutes` | nejdelší hovor, pak Twilio zavěsí | `10` |
 | `vault_dir` | složka, kterou relace čte | složka Miládky |
 | `persona_file` | kdo jsi a jak mluvíš | `CLAUDE.md` |
-| `transcript_dir` | kam se ukládá přepis každého hovoru | `vstupy/hovory` |
+| `transcript_dir` | kam se ukládá přepis každého hovoru; v `system/`, aby se zálohoval | `system/hovory` |
+| `timings` | časy v přepisu: první slovo po otázce, běh nástrojů, start relace; na ladění rychlosti | `false` |
 | `vault_read` | relace smí číst poznámky | `true` |
-| `mcp_servers`, `allowed_tools` | další servery pro relaci a nástroje z nich, které smí použít (třeba čtení pošty z Multigmailu). **Nikdy WhatsApp** - drží jedno spojení a druhá relace by ho shodila. Jen servery spouštěné z počítače (`command`/`args`). Konektory z claude.ai do hovoru dát nejde, třeba Google Calendar nebo Gmail. Kdo má poštu napojenou jen přes Claude, bez doplňku Multigmail, nemá ji v hovoru vůbec. Hovor pak umí jen poznámky. | žádné |
+| `mcp_servers`, `allowed_tools` | další servery pro relaci a nástroje z nich, které smí použít. Pro poštu z Multigmailu stačí `mg_list_accounts`, `mg_search_threads` a `mg_get_message` (s předponou `mcp__multi-gmail__`); celé vlákno a hledání ve všech schránkách server za hovoru stejně odmítne. **Nikdy WhatsApp** - drží jedno spojení a druhá relace by ho shodila. Jen servery spouštěné z počítače (`command`/`args`). Konektory z claude.ai do hovoru dát nejde, třeba Google Calendar nebo Gmail. Kdo má poštu napojenou jen přes Claude, bez doplňku Multigmail, nemá ji v hovoru vůbec. Hovor pak umí jen poznámky. | žádné |
 
 Pak `tel_reload_config` a zkušební rozhovor: `tel_converse` s `opening` „Ahoj, tady Miládka, zkouším rozhovor. Slyšíš mě?". Ověř s majitelem, že rozuměla, odpovídala včas a po rozloučení zavěsila.
 
@@ -351,8 +356,9 @@ Pak `tel_reload_config` a zkušební rozhovor: `tel_converse` s `opening` „Aho
 
 - **Jen majiteli.** Rozhovor s nikým jiným server nedovolí: relace čte poznámky.
 - **Kdy:** když je potřeba něco s majitelem probrat a nepočká to. Na jednosměrnou zprávu `tel_call`.
-- **`opening`** - první věta po zvednutí: kdo volá a proč. **`context`** - co relace potřebuje vědět: proč voláš, fakta, co od majitele chceš.
-- **Po hovoru** dostaneš celý přepis (a je uložený v `transcript_dir`). Projdi ho: co majitel chtěl odeslat nebo změnit, připrav jako koncept nebo návrh a nech si to písemně potvrdit. Zapiš, co z hovoru plyne, tam, kam patří (deník, úkoly, lidé), a soubor s přepisem pak smaž nebo zařaď.
+- **`opening`** - první věta po zvednutí: kdo volá a proč.
+- **`context` - tahák k důvodu hovoru, tohle rozhoduje o rychlosti.** Na co je odpověď v taháku, odpoví relace za necelou vteřinu. Každé hledání za hovoru znamená vteřiny ticha. Když voláš kvůli mailu, dej do taháku: celý mail (od koho, kdy, předmět, co přesně píše, ve které schránce), co o odesílateli a věci víš z poznámek, a svůj návrh, co odpovědět nebo udělat. Jen k tomu, kvůli čemu voláš, ne přehled všeho (do 12 000 znaků).
+- **Po hovoru** dostaneš celý přepis, je uložený v `transcript_dir` a odkazuje na něj deník hovorů. Projdi ho: co majitel chtěl odeslat nebo změnit, připrav jako koncept nebo návrh a nech si to písemně potvrdit. Zapiš, co z hovoru plyne, tam, kam patří (deník, úkoly, lidé). **Přepis nemaž**, zůstává jako záznam. S `timings: true` jsou v přepisu i časy (za jak dlouho po otázce zaznělo první slovo, který nástroj běžel a jak dlouho, start relace): když majitel řekne, že něco trvalo, odtud se pozná proč.
 - Klidné hodiny a denní strop platí stejně jako u `tel_call`.
 
 ## Řešení problémů

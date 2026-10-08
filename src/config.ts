@@ -57,8 +57,12 @@ const conversationSchema = z
     vault_dir: z.string().min(1).optional(),
     // Who Miládka is, read into the call session's instructions.
     persona_file: z.string().min(1).default('CLAUDE.md'),
-    // Where the transcript of each call is written, relative to vault_dir.
-    transcript_dir: z.string().min(1).default('vstupy/hovory'),
+    // Where the transcript of each call is written, relative to vault_dir. In
+    // system/, so it is backed up with the vault (Karel, 8. 10. 2026).
+    transcript_dir: z.string().min(1).default('system/hovory'),
+    // Timings in the transcript: first word after a question, each tool, the
+    // start of the session. For tuning; off by default (Karel, 8. 10. 2026).
+    timings: z.boolean().default(false),
     vault_read: z.boolean().default(true),
     // Extra MCP servers for the call session (same shape as in .mcp.json) and
     // the tools from them it may use. Never the WhatsApp add-on: it holds one
@@ -92,6 +96,9 @@ const settingsSchema = z
     // Where the Twilio keys are. Relative to Miládka's folder when the server
     // runs from it, else to the settings file.
     passwords_file: z.string().min(1).optional(),
+    // One line for every call: when, to whom, what was said, how it went.
+    // Relative to Miládka's folder; null switches it off.
+    call_log: z.string().min(1).nullable().default('system/hovory/hovory.md'),
     conversation: conversationSchema.prefault({}),
   })
   .strict();

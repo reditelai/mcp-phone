@@ -261,7 +261,8 @@ Nabídni ji, když info kanál Miládky hlásí novou verzi. Mění se jen soubo
 2. Přečti změny mezi nimi: `curl -s https://raw.githubusercontent.com/reditelai/mcp-phone/VERZE/CHANGELOG.md`, podsekce „Při aktualizaci". Uživateli řekni jednou dvěma větami, co nová verze přináší a že bude potřeba nová konverzace.
 3. Stáhni nový soubor vedle (`mcp-phone.new.mjs`, `SHA256SUMS.new`), ověř součet (`sed 's/mcp-phone.mjs/mcp-phone.new.mjs/' SHA256SUMS.new | sha256sum -c`), starý přejmenuj na `mcp-phone.old.mjs`, nový na `mcp-phone.mjs`.
 4. `--version` a kontrola z kroku 7, pak nová konverzace (v terminálu `/mcp` a Reconnect). **Změny nastavení z „Při aktualizaci" dělej až v ní** - starý server by nové klíče odmítl.
-5. Když něco selže, vrať `mcp-phone.old.mjs`, jinak ho smaž. Novou verzi zapiš do `system/moduly-instalovane.json`.
+5. **Příchozí hovory (Část D), když běží:** `systemctl --user restart mcp-phone-prichozi`, ať služba jede z nové verze, pak `--check`.
+6. Když něco selže, vrať `mcp-phone.old.mjs` (a restartuj službu), jinak ho smaž. Novou verzi zapiš do `system/moduly-instalovane.json`.
 
 ## Nový počítač nebo obnova ze zálohy
 
@@ -350,7 +351,7 @@ Do `system/phone.json` přidej oddíl `conversation`:
 | `persona_file` | kdo jsi a jak mluvíš | `CLAUDE.md` |
 | `transcript_dir` | kam se ukládá přepis každého hovoru, soubor `RRRR-MM-DD-HHMM-kdo.md` (u rozhovoru s majitelem `majitel`); v `system/`, aby se zálohoval | `system/hovory` |
 | `others_introduction` | první věta hovoru s kýmkoli jiným než majitelem: kdo volá a že je to AI asistentka, třeba „Dobrý den, tady Miládka, AI asistentka Karla Derfla.“ Musí obsahovat slovo „AI“. Bez ní `tel_converse_with` nefunguje. Znění navrhni a nech majitele schválit. | žádné |
-| `voice_tuning` | nastavení hlasu ElevenLabs v rozhovoru, `rychlost_stabilita_podobnost` (rychlost 0,7 až 1,2, ostatní 0 až 1), třeba `"1.0_0.8_0.8"`. Vyšší stabilita drží hlas stejnější mezi větami, když majitel slyší kolísání hlasitosti nebo tónu. Posuzuje se poslechem v telefonu. | výchozí ElevenLabs |
+| `voice_tuning` | nastavení hlasu ElevenLabs v rozhovoru, `rychlost_stabilita_podobnost` (rychlost 0,7 až 1,2, ostatní 0 až 1), třeba `"1.0_0.8_0.8"`. Vyšší stabilita drží hlas stejnější mezi větami, když majitel slyší kolísání hlasitosti nebo tónu. Posuzuje se poslechem v telefonu. `null` = výchozí nastavení ElevenLabs. | `"1.0_0.8_0.8"` |
 | `timings` | časy v přepisu: první slovo po otázce, běh nástrojů, start relace; na ladění rychlosti | `false` |
 | `vault_read` | relace smí číst poznámky | `true` |
 | `mcp_servers`, `allowed_tools` | další servery pro relaci a nástroje z nich, které smí použít. Pro poštu z Multigmailu stačí `mg_list_accounts`, `mg_search_threads` a `mg_get_message` (s předponou `mcp__multi-gmail__`); celé vlákno, hledání ve všech schránkách a cokoli, co ve schránce něco mění (i koncept), server za hovoru stejně odmítne. **Nikdy WhatsApp** - drží jedno spojení a druhá relace by ho shodila. Jen servery spouštěné z počítače (`command`/`args`). Konektory z claude.ai do hovoru dát nejde, třeba Google Calendar nebo Gmail. Kdo má poštu napojenou jen přes Claude, bez doplňku Multigmail, nemá ji v hovoru vůbec. Hovor pak umí jen poznámky. | žádné |

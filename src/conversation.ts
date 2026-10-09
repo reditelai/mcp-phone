@@ -65,7 +65,7 @@ export interface ConversationResult extends CallInfo {
 export function relayVoice(config: Config): string {
   const id = config.settings.voice.replace(/^ElevenLabs\./, '');
   const tuning = config.settings.conversation.voice_tuning;
-  return tuning === undefined ? id : `${id}-${tuning}`;
+  return tuning === null ? id : `${id}-${tuning}`;
 }
 
 export function escapeXml(text: string): string {

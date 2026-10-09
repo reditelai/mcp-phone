@@ -5,16 +5,21 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
-- Sekretářka po dalších zkouškách (Karel 9. 10. 2026): na konci jednou větou řekne, co vyřídí (ne holé „Vyřídím“), bez vzkazu se jednou doptá, nesmysl z rozpoznávání řeči nechá zopakovat, „vždyť jsem to říkal“ bere jako přeslechnutí. Když rozpoznávání řeči rozdělí jednu promluvu na dvě a druhá přijde dřív, než odpověď začne, dostanou jednu odpověď, ne dvě za sebou. Nový `conversation.voice_tuning` (rychlost, stabilita a podobnost hlasu ElevenLabs) proti kolísání hlasu.
-- Filtr příchozích hovorů `incoming.owner_lines` (Karel 9. 10. 2026): sekretářka vezme jen hovor přesměrovaný z majitelových čísel nebo přímý hovor z nich, ostatní dostanou obsazovací tón bez AI a nahrávky a ohlásí se jako `odmitnuto` v deníku i hlídači. Čísla se porovnávají podle národní části (Twilio posílá přesměrování někdy bez +420). Bez nastavení beze změny. Záložní nahrávka v Twiliu filtr nezná, popsáno jako známé omezení.
-- Sekretářka po zkouškách s Karlem (9. 10. 2026): nechá volajícího mluvit, ptá se jen na jméno, ne na firmu, město ani číslo, průběžně ani na konci neshrnuje („Vyřídím. Na shledanou.“), neomlouvá se a nekomentuje sebe ani hovor, odmítnutí přijme. Přepis po přerušení ukazuje jen to, co opravdu zaznělo (`utteranceUntilInterrupt`), s poznámkou „přerušeno“.
-- Příchozí hovory, sekretářka (Karel 9. 10. 2026, jen server): stálá služba `--serve` bere hovory přesměrované od operátora, relace stejně odstřižená jako u hovoru s někým jiným (i když volá číslo majitele), strop 3 minuty, druhý souběžný hovor obsazeno. Přepis, deník a fronta vzkazů, hlídání `--wait` pro asistenta. Vypnuto (`incoming.enabled`) nebo při výpadku služby záložní nahrávka v Twiliu; služba nahrávky stáhne a v Twiliu smaže. `--setup-incoming` vygeneruje tajnou část adresy do souboru s klíči (`incoming_secret`, ne do zálohovaného nastavení; Věrka 9. 10.) a nasměruje číslo na službu, `--check` ověří adresu, službu, číslo i záložní odpověď. Návod Část D s podmínkami, bez kterých se nepokračuje.
-- U nezvednutého hovoru `ring_seconds`, jak dlouho zvonilo (z časů Twilia). Deník hovorů rozliší „obsazeno hned“ od „zvonilo asi 12 s, odmítl“ (Karel 9. 10. 2026).
-- Rozhovor se nezavěsí hned po otázce: když poslední věta končí otazníkem, program zavěšení odmítne a Miládka počká na odpověď (Karel 9. 10. 2026, „Chceš ještě něco probrat?“ a konec hovoru).
+## [0.2.0] - 2026-10-09
+
+Příchozí hovory: když nezvedáte, Miládka na serveru vezme přesměrovaný hovor jako sekretářka a předá vám vzkaz.
+
+- Příchozí hovory, jen pro server se stálou adresou (návod Část D): stálá služba `--serve` bere hovory přesměrované od operátora. Sekretářka je odstřižená stejně jako hovor s někým jiným (prázdná složka, bez poznámek, pošty a nástrojů), nechá volajícího mluvit, zeptá se nanejvýš na jméno a skončí větou, co vyřídí. Strop 3 minuty, souběžný hovor obsazeno. Přepis, deník hovorů a hlídání `--wait`, které probudí asistenta.
+- Filtr `incoming.owner_lines`: sekretářka jen pro hovory přesměrované z majitelových čísel nebo přímé z nich, ostatní obsazovací tón a ohlášení.
+- Vypnutí na dovolenou a výpadek služby: volající nechá nahrávku (záložní odpověď v Twiliu), služba ji stáhne a v Twiliu smaže.
+- `--setup-incoming` vygeneruje tajnou adresu služby do souboru s klíči a nasměruje číslo, `--check` ověří adresu, službu, číslo i záložní odpověď.
+- Stabilnější hlas v rozhovorech (`conversation.voice_tuning`, výchozí `1.0_0.8_0.8`): hlas mezi větami nekolísá.
+- U nezvednutého hovoru `ring_seconds` (obsazeno hned, nebo zvonilo a odmítl). Rozhovor se nezavěsí hned po otázce. Přepis po přerušení ukazuje jen to, co zaznělo. Rozdělená promluva dostane jednu odpověď.
 
 ### Při aktualizaci
 
-- Nastavení se nemění.
+- Nastavení se nemění. Rozhovory mají nově výchozí stabilnější hlas (`conversation.voice_tuning`); kdo chce původní, nastaví `null`.
+- Příchozí hovory jsou volitelné a jen pro server: nenabízej je sama, jen když o ně majitel stojí, a pak podle návodu, Část D. Když už běží, po výměně souboru `systemctl --user restart mcp-phone-prichozi` a `--check`.
 
 ## [0.1.0] - 2026-10-09
 

@@ -51,10 +51,11 @@ const conversationSchema = z
     // is hundreds of megabytes per system, so the server uses the installed one.
     claude_path: z.string().min(1).default('claude'),
     model: z.string().min(1).default('sonnet'),
-    // ElevenLabs voice settings for conversations, speed_stability_similarity
-    // (e.g. "1.0_0.8_0.8"): higher stability keeps the voice steadier between
-    // sentences. Unset = ElevenLabs defaults.
-    voice_tuning: z.string().regex(/^\d(\.\d+)?_\d(\.\d+)?_\d(\.\d+)?$/, 'tvar rychlost_stabilita_podobnost, třeba 1.0_0.8_0.8').optional(),
+    // ElevenLabs voice settings for conversations, speed_stability_similarity.
+    // Higher stability keeps the voice steadier between sentences: with the
+    // ElevenLabs defaults Karel heard the loudness change (9. 10. 2026), with
+    // 0.8 he did not. null = ElevenLabs defaults.
+    voice_tuning: z.string().regex(/^\d(\.\d+)?_\d(\.\d+)?_\d(\.\d+)?$/, 'tvar rychlost_stabilita_podobnost, třeba 1.0_0.8_0.8').nullable().default('1.0_0.8_0.8'),
     greeting: z.string().min(1).default('Ahoj, tady Miládka. Poslouchám.'),
     max_minutes: z.number().int().min(1).max(60).default(10),
     // Folder the call session may read (the vault). Defaults to Miládka's folder.

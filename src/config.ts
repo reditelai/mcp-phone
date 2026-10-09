@@ -82,6 +82,44 @@ const conversationSchema = z
   })
   .strict();
 
+const DEFAULT_INCOMING_TASK = [
+  'Someone called the owner, who could not pick up, and the call came to you. Take a message.',
+  'Find out who is calling (name, and company or town if they have one), what they need, whether it is urgent, and when and how the owner should get back to them.',
+  'Do not say where the owner is or what he is doing, do not promise when he will call back, do not arrange anything. Only take the message and say you will pass it on.',
+  'When you have it, repeat the main point in one sentence and say the owner will get the message. Then let the caller finish; when they have nothing more, say goodbye and hang up.',
+].join(' ');
+
+/**
+ * Incoming calls (phase 2, server only): the owner forwards calls he does not
+ * pick up to the Twilio number and an always-on service answers them as a
+ * secretary that only takes a message (Karel, 9. 10. 2026). The session that
+ * talks to the caller is the same isolated one as for calls to others.
+ */
+const incomingSchema = z
+  .object({
+    // Off = the caller hears voicemail_text and can leave a recording
+    // (holidays, or while it is not set up).
+    enabled: z.boolean().default(false),
+    // Unguessable part of the webhook address Twilio calls; nobody else
+    // can open the service without it.
+    path_secret: z.string().regex(/^[A-Za-z0-9_-]{24,}$/, 'aspoň 24 znaků z písmen, číslic, - a _').optional(),
+    listen_port: z.number().int().min(1024).max(65535).default(8788),
+    max_minutes: z.number().int().min(1).max(10).default(3),
+    // What the caller hears first. It has to say that an AI assistant answers.
+    greeting: z
+      .string()
+      .min(10)
+      .max(300)
+      .refine((text) => /\bAI\b/.test(text), 'pozdrav musí říct, že hovor bere AI asistentka (slovo „AI")')
+      .optional(),
+    task: z.string().min(20).max(4000).default(DEFAULT_INCOMING_TASK),
+    voicemail_text: z.string().min(10).max(500).default('Dobrý den, teď to nikdo nemůže vzít. Nechte prosím vzkaz po pípnutí.'),
+    // Messages waiting for the assistant: the --wait watcher reads them.
+    // Relative to Miládka's folder; not backed up (it lives with the program).
+    queue_file: z.string().min(1).default('.doplnky/mcp-phone/prichozi.jsonl'),
+  })
+  .strict();
+
 const settingsSchema = z
   .object({
     // The owner is the only one Miládka calls on her own, the only one she may
@@ -110,10 +148,12 @@ const settingsSchema = z
     // Relative to Miládka's folder; null switches it off.
     call_log: z.string().min(1).nullable().default('system/hovory/hovory.md'),
     conversation: conversationSchema.prefault({}),
+    incoming: incomingSchema.prefault({}),
   })
   .strict();
 
 export type Conversation = z.infer<typeof conversationSchema>;
+export type Incoming = z.infer<typeof incomingSchema>;
 export type Settings = z.infer<typeof settingsSchema>;
 
 const keysSchema = z

@@ -35,7 +35,8 @@ function outcome(info: CallInfo): string {
 export interface LogEntry {
   /** "majitel", a name from recipients, or the number dialled. */
   who: string;
-  kind: 'vzkaz' | 'rozhovor';
+  /** "příchozí": the secretary took the call; "záznamník": a recording while the service was off. */
+  kind: 'vzkaz' | 'rozhovor' | 'příchozí' | 'záznamník';
   /** The message read out, for a one-way call. */
   message?: string;
   info: CallInfo;
@@ -54,9 +55,11 @@ export function logCall(config: Config, entry: LogEntry): void {
     const when = new Intl.DateTimeFormat('cs-CZ', { timeZone: config.settings.timezone, day: 'numeric', month: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(
       entry.info.started === null ? new Date() : new Date(entry.info.started),
     );
-    let line = `- **${when}**, ${entry.kind}, komu: ${entry.who}, ${outcome(entry.info)}.`;
+    const incoming = entry.kind === 'příchozí' || entry.kind === 'záznamník';
+    const how = incoming ? `${entry.info.duration_seconds ?? '?'} s` : outcome(entry.info);
+    let line = `- **${when}**, ${entry.kind}, ${incoming ? 'od' : 'komu'}: ${entry.who}, ${how}.`;
     if (entry.message !== undefined) line += ` „${entry.message.replace(/\s+/g, ' ').trim()}“`;
-    if (entry.transcript) line += ` Přepis: [${entry.transcript.split('/').at(-1)}](${relative(dirname(file), resolve(vault, entry.transcript)).split('\\').join('/')})`;
+    if (entry.transcript) line += ` ${entry.kind === 'záznamník' ? 'Nahrávka' : 'Přepis'}: [${entry.transcript.split('/').at(-1)}](${relative(dirname(file), resolve(vault, entry.transcript)).split('\\').join('/')})`;
     appendFileSync(file, `${line}\n`);
   } catch (error) {
     process.stderr.write(`mcp-phone: deník hovorů se nepodařilo zapsat: ${error instanceof Error ? error.message : String(error)}\n`);

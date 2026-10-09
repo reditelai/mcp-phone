@@ -21,7 +21,8 @@ import { registerCallTools } from './tools/call.js';
 import { registerConverseTool, registerConverseWithTool } from './tools/converse.js';
 import { registerReloadTool } from './tools/reload.js';
 import { registerStatusTool } from './tools/status.js';
-import { countCallsSince } from './twilio.js';
+import { incomingBase, incomingProblems, serve, waitForMessages, WAIT_EXIT } from './incoming.js';
+import { countCallsSince, findNumber, setVoiceUrl } from './twilio.js';
 
 const NAME = 'mcp-phone';
 const VERSION = bundledVersion() ?? readVersion();
@@ -86,6 +87,53 @@ async function check(argv: string[]): Promise<number> {
       `ok: ${NAME} ${VERSION}, klíče fungují, majitel nastaven, dalších lidí ${Object.keys(settings.recipients).length}, ` +
         `volání na jiná čísla ${settings.call_other_numbers ? 'zapnuté' : 'vypnuté'}, dnes ${today} z ${settings.daily_limit} hovorů${quiet}\n`,
     );
+    return await checkIncoming(config);
+  } catch (error) {
+    process.stdout.write(`chyba: ${error instanceof Error ? error.message : String(error)}\n`);
+    return 6;
+  }
+}
+
+/**
+ * Incoming calls: every condition, with what is wrong said plainly. They touch
+ * the owner's phone (forwarding), so a half-done setup must not stay silent.
+ */
+async function checkIncoming(config: Config): Promise<number> {
+  const { settings, keys } = config;
+  if (!settings.incoming.enabled && settings.incoming.path_secret === undefined) return 0;
+  const problems = incomingProblems(config);
+  const base = incomingBase(config);
+  if (base !== null) {
+    try {
+      const health = await fetch(`${base}/health`, { signal: AbortSignal.timeout(8000) });
+      if (!health.ok) problems.push(`služba na ${settings.conversation.public_url}/prichozi/… neodpovídá (HTTP ${health.status}): běží --serve a vede na ni proxy?`);
+    } catch {
+      problems.push(`služba na ${settings.conversation.public_url}/prichozi/… neodpovídá: běží --serve a vede na ni proxy?`);
+    }
+    const number = await findNumber(keys, settings);
+    if (number.voice_url !== `${base}/voice`) problems.push('číslo v Twiliu neposílá příchozí hovory na službu (spusť --setup-incoming)');
+    if (number.voice_fallback_url === '') problems.push('číslo v Twiliu nemá záložní odpověď (A call comes in → Primary handler fails), při výpadku by volající slyšel chybu');
+  }
+  if (problems.length > 0) {
+    process.stdout.write(`chyba: příchozí hovory nejsou připravené: ${problems.join('; ')}\n`);
+    return 6;
+  }
+  process.stdout.write(`ok: příchozí hovory připravené, ${settings.incoming.enabled ? 'zapnuté' : 'vypnuté (záznamník)'}, strop ${settings.incoming.max_minutes} min\n`);
+  return 0;
+}
+
+/** --setup-incoming: points the owner's Twilio number to the service. */
+async function setupIncoming(argv: string[]): Promise<number> {
+  try {
+    const config = await loadConfig(resolveConfigPath(argv));
+    const problems = incomingProblems(config);
+    if (problems.length > 0) {
+      process.stdout.write(`chyba: ${problems.join('; ')}\n`);
+      return 6;
+    }
+    const number = await findNumber(config.keys, config.settings);
+    await setVoiceUrl(config.keys, number.sid, `${incomingBase(config)}/voice`);
+    process.stdout.write(`ok: příchozí hovory na ${config.settings.from} teď jdou na službu${number.voice_fallback_url === '' ? '; chybí záložní odpověď v Twiliu' : ''}\n`);
     return 0;
   } catch (error) {
     process.stdout.write(`chyba: ${error instanceof Error ? error.message : String(error)}\n`);
@@ -109,6 +157,33 @@ async function main(): Promise<void> {
   }
   if (argv.includes('--check')) {
     process.exitCode = await check(argv);
+    return;
+  }
+  if (argv.includes('--setup-incoming')) {
+    process.exitCode = await setupIncoming(argv);
+    return;
+  }
+  if (argv.includes('--wait')) {
+    // The watcher: one line on stdout for the assistant, an exit code for what to do.
+    try {
+      const config = await loadConfig(resolveConfigPath(argv));
+      const max = argv.indexOf('--max');
+      const minutes = max !== -1 ? Number(argv[max + 1]) : 115;
+      if (!Number.isFinite(minutes) || minutes <= 0) throw new ConfigError('--max čeká počet minut, třeba 115');
+      process.exitCode = await waitForMessages(config, minutes * 60_000, (line) => process.stdout.write(`${line}\n`));
+    } catch (error) {
+      process.stdout.write(`chyba: ${error instanceof Error ? error.message : String(error)}\n`);
+      process.exitCode = WAIT_EXIT.usage;
+    }
+    return;
+  }
+  if (argv.includes('--serve')) {
+    try {
+      await serve(await loadConfig(resolveConfigPath(argv)));
+    } catch (error) {
+      process.stderr.write(`${NAME}: ${error instanceof Error ? error.message : String(error)}\n`);
+      process.exitCode = 1;
+    }
     return;
   }
 

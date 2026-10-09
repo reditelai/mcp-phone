@@ -37,7 +37,7 @@ export function sayTwiml(settings: Settings, message: string): string {
   return `<Response><Say voice="${escapeXml(settings.voice)}" language="${escapeXml(settings.language)}">${escapeXml(message)}</Say></Response>`;
 }
 
-async function request(keys: Keys, method: 'GET' | 'POST', path: string, form?: Record<string, string>): Promise<Record<string, unknown>> {
+async function request(keys: Keys, method: 'GET' | 'POST' | 'DELETE', path: string, form?: Record<string, string>): Promise<Record<string, unknown>> {
   const auth = 'Basic ' + Buffer.from(`${keys.api_key}:${keys.api_secret}`).toString('base64');
   let response: Response;
   try {
@@ -50,7 +50,7 @@ async function request(keys: Keys, method: 'GET' | 'POST', path: string, form?: 
   } catch (error) {
     throw new ToolError('twilio_unreachable', `Twilio did not answer: ${error instanceof Error ? error.message : String(error)}`);
   }
-  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (response.status === 204 ? {} : await response.json().catch(() => ({}))) as Record<string, unknown>;
   if (!response.ok) {
     const code = typeof body['code'] === 'number' ? body['code'] : response.status;
     const message = typeof body['message'] === 'string' ? body['message'] : `HTTP ${response.status}`;
@@ -143,4 +143,65 @@ export function explain(info: CallInfo): string {
     default:
       return `Status ${info.status}.`;
   }
+}
+
+/** The owner's Twilio number as Twilio has it set up: where it sends incoming calls. */
+export interface NumberSetup {
+  sid: string;
+  voice_url: string;
+  voice_fallback_url: string;
+}
+
+export async function findNumber(keys: Keys, settings: Settings): Promise<NumberSetup> {
+  const query = new URLSearchParams({ PhoneNumber: settings.from });
+  const body = await request(keys, 'GET', `/IncomingPhoneNumbers.json?${query.toString()}`);
+  const found = Array.isArray(body['incoming_phone_numbers']) ? (body['incoming_phone_numbers'] as Array<Record<string, unknown>>)[0] : undefined;
+  if (found === undefined) throw new ToolError('number_unknown', `The number ${settings.from} (settings "from") is not in this Twilio account.`);
+  return {
+    sid: String(found['sid'] ?? ''),
+    voice_url: String(found['voice_url'] ?? ''),
+    voice_fallback_url: String(found['voice_fallback_url'] ?? ''),
+  };
+}
+
+/** Points incoming calls on the owner's number to the service. */
+export async function setVoiceUrl(keys: Keys, numberSid: string, url: string): Promise<void> {
+  await request(keys, 'POST', `/IncomingPhoneNumbers/${numberSid}.json`, { VoiceUrl: url, VoiceMethod: 'POST' });
+}
+
+export interface Recording {
+  sid: string;
+  call_sid: string;
+  created: string;
+  duration_seconds: number;
+}
+
+/** Recordings left on the account, newest first (voicemail while the service was off). */
+export async function listRecordings(keys: Keys): Promise<Recording[]> {
+  const body = await request(keys, 'GET', '/Recordings.json?PageSize=50');
+  const list = Array.isArray(body['recordings']) ? (body['recordings'] as Array<Record<string, unknown>>) : [];
+  return list.map((r) => ({
+    sid: String(r['sid'] ?? ''),
+    call_sid: String(r['call_sid'] ?? ''),
+    created: typeof r['date_created'] === 'string' ? new Date(r['date_created']).toISOString() : new Date().toISOString(),
+    duration_seconds: Number(r['duration'] ?? 0) || 0,
+  }));
+}
+
+/** Who called and to which number, for a call we did not place. */
+export async function callParties(keys: Keys, sid: string): Promise<{ from: string; to: string; forwarded_from: string }> {
+  const body = await request(keys, 'GET', `/Calls/${sid}.json`);
+  return { from: String(body['from'] ?? ''), to: String(body['to'] ?? ''), forwarded_from: String(body['forwarded_from'] ?? '') };
+}
+
+export async function downloadRecording(keys: Keys, sid: string): Promise<Buffer> {
+  const auth = 'Basic ' + Buffer.from(`${keys.api_key}:${keys.api_secret}`).toString('base64');
+  const response = await fetch(`${API}/Accounts/${keys.account_sid}/Recordings/${sid}.mp3`, { headers: { Authorization: auth }, signal: AbortSignal.timeout(60_000) });
+  if (!response.ok) throw new ToolError('twilio_error', `Twilio did not return recording ${sid} (HTTP ${response.status}).`);
+  return Buffer.from(await response.arrayBuffer());
+}
+
+/** Once saved with the owner, the recording leaves Twilio: a voice message is personal data. */
+export async function deleteRecording(keys: Keys, sid: string): Promise<void> {
+  await request(keys, 'DELETE', `/Recordings/${sid}.json`);
 }

@@ -5,6 +5,7 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+- Příchozí hovory, sekretářka (Karel 9. 10. 2026, jen server): stálá služba `--serve` bere hovory přesměrované od operátora, relace stejně odstřižená jako u hovoru s někým jiným (i když volá číslo majitele), strop 3 minuty, druhý souběžný hovor obsazeno. Přepis, deník a fronta vzkazů, hlídání `--wait` pro asistenta. Vypnuto (`incoming.enabled`) nebo při výpadku služby záložní nahrávka v Twiliu; služba nahrávky stáhne a v Twiliu smaže. `--setup-incoming` nasměruje číslo na službu, `--check` ověří adresu, službu, číslo i záložní odpověď. Návod Část D s podmínkami, bez kterých se nepokračuje.
 - U nezvednutého hovoru `ring_seconds`, jak dlouho zvonilo (z časů Twilia). Deník hovorů rozliší „obsazeno hned“ od „zvonilo asi 12 s, odmítl“ (Karel 9. 10. 2026).
 - Rozhovor se nezavěsí hned po otázce: když poslední věta končí otazníkem, program zavěšení odmítne a Miládka počká na odpověď (Karel 9. 10. 2026, „Chceš ještě něco probrat?“ a konec hovoru).
 

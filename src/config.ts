@@ -51,6 +51,10 @@ const conversationSchema = z
     // is hundreds of megabytes per system, so the server uses the installed one.
     claude_path: z.string().min(1).default('claude'),
     model: z.string().min(1).default('sonnet'),
+    // ElevenLabs voice settings for conversations, speed_stability_similarity
+    // (e.g. "1.0_0.8_0.8"): higher stability keeps the voice steadier between
+    // sentences. Unset = ElevenLabs defaults.
+    voice_tuning: z.string().regex(/^\d(\.\d+)?_\d(\.\d+)?_\d(\.\d+)?$/, 'tvar rychlost_stabilita_podobnost, třeba 1.0_0.8_0.8').optional(),
     greeting: z.string().min(1).default('Ahoj, tady Miládka. Poslouchám.'),
     max_minutes: z.number().int().min(1).max(60).default(10),
     // Folder the call session may read (the vault). Defaults to Miládka's folder.
@@ -86,7 +90,9 @@ const DEFAULT_INCOMING_TASK = [
   'Someone called the owner, who could not pick up, and the call came to you. Take a message.',
   'After the greeting, let the caller say what they want. Listen; do not interview them. Ask only for their name if they have not said it.',
   'Do not ask for a company, a town or a number: the owner will call back the number they are calling from, unless they say they want another.',
-  'Do not sum up what they said, neither during the call nor at the end. When they have said it, answer only "Vyřídím. Na shledanou." and hang up.',
+  'If you did not understand what they said (it makes no sense), say only "Nerozuměla jsem, můžete to zopakovat?". If they say they already told you, you missed it: ask them to say it again, do not end.',
+  'If you have no message yet, ask once what you should pass on. Only when you have it, end with one sentence that says what you will pass on, e.g. "Vyřídím Karlovi, že se vám má ozvat kvůli smlouvě. Na shledanou.", and hang up. Never end with a bare "Vyřídím".',
+  'Do not sum up what they said during the call, do not repeat it back sentence by sentence.',
   'Do not say where the owner is or what he is doing, do not promise when he will call back, do not arrange anything.',
 ].join(' ');
 

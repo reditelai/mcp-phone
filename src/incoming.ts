@@ -34,6 +34,7 @@ import {
   escapeXml,
   findExecutable,
   listen,
+  relayVoice,
   speakingMs,
   startSession,
   writeTranscript,
@@ -255,7 +256,7 @@ export async function serve(config: Config): Promise<void> {
       };
       current = call;
       log(`hovor od ${from}${forwardedFrom ? ` (přesměrováno z ${forwardedFrom})` : ''}`);
-      const voice = settings.voice.replace(/^ElevenLabs\./, '');
+      const voice = relayVoice(config);
       const relay = `${base.replace(/^https:/, 'wss:')}/relay/${call.relaySecret}`;
       response.end(
         twiml(

@@ -61,6 +61,13 @@ export interface ConversationResult extends CallInfo {
   ended_by: 'callee' | 'assistant' | 'time_limit' | 'not_connected';
 }
 
+/** The ElevenLabs voice for ConversationRelay: id, plus speed_stability_similarity when set. */
+export function relayVoice(config: Config): string {
+  const id = config.settings.voice.replace(/^ElevenLabs\./, '');
+  const tuning = config.settings.conversation.voice_tuning;
+  return tuning === undefined ? id : `${id}-${tuning}`;
+}
+
 export function escapeXml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
@@ -142,7 +149,7 @@ function otherPrompt(config: Config, callee: Callee, opening: string, task: stri
     callee.incoming
       ? 'When the caller has said what they want, end as the task says and call hang_up. Never right after asking a question.'
       : 'When the task is done or the person wants to end the call, repeat in one sentence what was agreed, say goodbye and call hang_up. Do not hang up otherwise, and never right after asking a question.',
-    'Never comment on yourself or the call: no apologies, nothing about being new, about the line, about speech recognition or a name that came through wrong. If a word sounds odd, ignore it and go on.',
+    'Never comment on yourself or the call: no apologies, nothing about being new or about the line. When a name or a word came through garbled, do not comment on it; when the whole thing makes no sense, ask them to repeat it in one sentence.',
     'When they refuse to tell you something, accept it and do not ask again.',
     `Today is ${new Date().toLocaleString('cs-CZ', { timeZone: config.settings.timezone })} (${config.settings.timezone}).`,
     `The task from the owner:\n${task.trim()}`,
@@ -285,7 +292,7 @@ export async function converse(config: Config, callee: Callee, opening: string, 
     }
     await waitReachable(base);
 
-    const voice = settings.voice.replace(/^ElevenLabs\./, '');
+    const voice = relayVoice(config);
     const relay = `${base.replace(/^https:/, 'wss:')}/relay/${secret}`;
     const twiml =
       `<Response><Connect><ConversationRelay url="${escapeXml(relay)}" language="${escapeXml(settings.language)}" ` +
@@ -423,6 +430,7 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
   let saidInTurn = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
   const running = new Map<string, { name: string; started: number }>();
+  let busy = false; // a turn is running
   let interruptedAt: string | null = null; // what was heard of the current answer before the other side spoke over it
   const cut = (heard: string): string => (heard.trim() === '' ? '_(přerušeno, nic nezaznělo)_' : `${heard.trim()} … _(přerušeno)_`);
   const startedAt = Date.now();
@@ -444,6 +452,7 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
       while (pending.length === 0) await new Promise<void>((done) => (wake = done));
       const text = pending.shift();
       if (text === null || text === undefined) return;
+      busy = true;
       yield { type: 'user', message: { role: 'user', content: text }, parent_tool_use_id: null };
     }
   }
@@ -583,6 +592,7 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
           }
         }
       } else if (message.type === 'result') {
+        busy = false;
         stopTimer();
         if (warming) {
           timing(`Miládka připravená za ${seconds(startedAt)} s od vytáčení`);
@@ -622,6 +632,10 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
     say(text: string): void {
       transcript.push({ who: 'callee', text });
       askedAt ??= Date.now();
+      // The other side went on talking before the answer started (speech
+      // recognition split one utterance in two): drop the half-finished turn,
+      // so that both parts get one answer, not two in a row (Karel, 9. 10. 2026).
+      if (busy && !saidInTurn && !warming) void session.interrupt().catch(() => {});
       push(text);
     },
     /**

@@ -20,6 +20,13 @@ export interface CallInfo {
   status: string;
   duration_seconds: number | null;
   started: string | null;
+  /**
+   * For a call nobody answered (busy, no-answer): roughly how long it rang,
+   * from Twilio's start and end time. A few seconds means busy or switched
+   * off at once; longer means it rang and was declined or left (Karel,
+   * 9. 10. 2026: "jestli to hned hlásilo obsazeno, nebo zvonilo").
+   */
+  ring_seconds: number | null;
 }
 
 function escapeXml(text: string): string {
@@ -54,13 +61,24 @@ async function request(keys: Keys, method: 'GET' | 'POST', path: string, form?: 
   return body;
 }
 
+function time(value: unknown): number | null {
+  if (typeof value !== 'string' || value === '') return null;
+  const t = Date.parse(value);
+  return Number.isNaN(t) ? null : t;
+}
+
 function toCallInfo(body: Record<string, unknown>): CallInfo {
   const duration = typeof body['duration'] === 'string' ? Number(body['duration']) : null;
+  const status = String(body['status'] ?? 'unknown');
+  const start = time(body['start_time']) ?? time(body['date_created']);
+  const end = time(body['end_time']) ?? (FINAL.has(status) ? time(body['date_updated']) : null);
+  const unanswered = status === 'busy' || status === 'no-answer';
   return {
     sid: String(body['sid'] ?? ''),
-    status: String(body['status'] ?? 'unknown'),
+    status,
     duration_seconds: duration !== null && Number.isFinite(duration) ? duration : null,
     started: typeof body['start_time'] === 'string' ? new Date(body['start_time']).toISOString() : null,
+    ring_seconds: unanswered && start !== null && end !== null && end >= start ? Math.round((end - start) / 1000) : null,
   };
 }
 
@@ -106,7 +124,9 @@ export function explain(info: CallInfo): string {
     case 'completed':
       return `Answered; the call lasted ${info.duration_seconds ?? '?'} s. A call that lasted about as long as the message took was most likely heard in full; a much shorter one may have been hung up early. Twilio cannot tell a person from voicemail.`;
     case 'busy':
-      return 'Busy or declined. Nothing was played.';
+      return info.ring_seconds !== null && info.ring_seconds >= 5
+        ? `It rang for about ${info.ring_seconds} s and was declined. Nothing was played.`
+        : 'Busy at once (line busy, phone off or call rejected immediately). Nothing was played.';
     case 'no-answer':
       return 'Nobody picked up. Nothing was played.';
     case 'failed':

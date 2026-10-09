@@ -20,9 +20,9 @@ function outcome(info: CallInfo): string {
     case 'completed':
       return `zvedl, ${info.duration_seconds ?? '?'} s`;
     case 'busy':
-      return 'obsazeno nebo odmítl';
+      return info.ring_seconds !== null && info.ring_seconds >= 5 ? `zvonilo asi ${info.ring_seconds} s, odmítl` : 'obsazeno hned';
     case 'no-answer':
-      return 'nezvedl';
+      return info.ring_seconds !== null ? `zvonilo asi ${info.ring_seconds} s, nezvedl` : 'nezvedl';
     case 'failed':
       return 'nepodařilo se spojit';
     case 'canceled':

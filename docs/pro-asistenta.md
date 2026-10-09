@@ -234,7 +234,7 @@ Klidné hodiny, denní strop a délku vzkazu hlídá server sám. Když hovor od
 | Stav | Co dál |
 |---|---|
 | `completed` | Zvedl. Když délka odpovídá vzkazu, slyšel ho celý. Twilio nerozliší člověka od hlasové schránky. |
-| `no-answer`, `busy` | Nezvedl nebo odmítl. Nic se nepřehrálo. Napiš mu, nevolej hned znovu. |
+| `no-answer`, `busy` | Nezvedl nebo odmítl. Nic se nepřehrálo. `ring_seconds` říká, jak dlouho přibližně zvonilo: pár vteřin u `busy` znamená obsazeno nebo vypnutý telefon hned, delší znamená, že zvonilo a odmítl. Napiš mu, nevolej hned znovu. |
 | `failed` | Hovor se nespojil. Napiš mu a podívej se na chybu (Řešení problémů). |
 
 Výsledek každého volání nese `calls_left_today`: kolik hovorů dnes ještě zbývá do denního stropu. Počítá se každý pokus, i nezvednutý nebo obsazený. Když zbývá málo, řekni to majiteli dřív, než narazíš.

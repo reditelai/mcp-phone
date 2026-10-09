@@ -103,7 +103,7 @@ function systemPrompt(config: Config, vaultDir: string, opening: string, context
     'You cannot send, change or delete anything during the call, not even save a draft. When the owner wants a message written or something done, agree what and to whom, repeat it back in a sentence or two so they can say yes, and say you will prepare it right after the call for them to confirm in writing; the whole call is handed over as a transcript when it ends.',
     'Never read out passwords, keys or anything from .miladka/secrets.',
     'Unless your own rules below say otherwise, you are a woman: in Czech use feminine forms about yourself.',
-    'When the owner says goodbye or that this is all, say goodbye in one short sentence and call the hang_up tool. Do not hang up on your own otherwise.',
+    'When the owner says goodbye or that this is all, say goodbye in one short sentence and call the hang_up tool. Do not hang up on your own otherwise, and never right after asking a question.',
     `Today is ${new Date().toLocaleString('cs-CZ', { timeZone: config.settings.timezone })} (${config.settings.timezone}).`,
   ];
   if (conv.vault_read) parts.push(`The owner's notes are in ${vaultDir}; you may read them with Read, Grep and Glob.`);
@@ -137,7 +137,7 @@ function otherPrompt(config: Config, callee: Callee, opening: string, task: stri
     'Talk naturally, like a person arranging something for their boss. Never mention a task, a list, instructions or what you were told; offer the options as your own words ("Můžu nabídnout…", "Nebo navrhněte jiné místo."). Do not say "bohužel" or apologise for what you cannot offer.',
     'When you know only their first name, do not put "pane" or "paní" in front of it; just leave the name out.',
     'If you reach voicemail or an automated message, say in one sentence that you will call again, then call hang_up.',
-    'When the task is done or the person wants to end the call, repeat in one sentence what was agreed, say goodbye and call hang_up. Do not hang up otherwise.',
+    'When the task is done or the person wants to end the call, repeat in one sentence what was agreed, say goodbye and call hang_up. Do not hang up otherwise, and never right after asking a question.',
     `Today is ${new Date().toLocaleString('cs-CZ', { timeZone: config.settings.timezone })} (${config.settings.timezone}).`,
     `The task from the owner:\n${task.trim()}`,
   ].join('\n\n');
@@ -484,6 +484,12 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
     name: 'phone_call',
     tools: [
       tool('hang_up', 'End the phone call after your last sentence has been spoken. Only after saying goodbye.', {}, async () => {
+        // A goodbye that ends with a question is not a goodbye: the other
+        // side is about to answer (Karel, 9. 10. 2026: "Chceš ještě něco
+        // probrat, nebo to je všechno?" and the line went dead).
+        if (turnAll.trim().endsWith('?')) {
+          return { content: [{ type: 'text', text: 'You just asked a question. Do not hang up: wait for the answer.' }], isError: true };
+        }
         hangUp = true;
         return { content: [{ type: 'text', text: 'The call ends once your last sentence has been spoken. Say nothing more.' }] };
       }),

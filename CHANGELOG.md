@@ -5,6 +5,16 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.1] - 2026-10-09
+
+Vzkaz od sekretářky Miládka jen napíše, nevolá.
+
+- Návod, Část D: po vzkazu od sekretářky majiteli nevolej, ani když volající řekl, že to spěchá. Hovor nezvedl, k telefonu teď nemůže (Karel). Verze 0.3.0 tady radila zeptat se, jestli volat.
+
+### Při aktualizaci
+
+- Nastavení se nemění. Když je v `call_owner_when` případ o vzkazech od sekretářky (třeba „když volající řekne, že to spěchá"), navrhni majiteli ho smazat a smaž ho až po jeho souhlasu.
+
 ## [0.3.0] - 2026-10-09
 
 Kdy vám Miládka zavolá sama, určujete vy: při nastavení se zeptá a bez vašich pravidel volá jen na požádání.

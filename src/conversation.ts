@@ -139,7 +139,11 @@ function otherPrompt(config: Config, callee: Callee, opening: string, task: stri
     'Talk naturally, like a person arranging something for their boss. Never mention a task, a list, instructions or what you were told; offer the options as your own words ("Můžu nabídnout…", "Nebo navrhněte jiné místo."). Do not say "bohužel" or apologise for what you cannot offer.',
     'When you know only their first name, do not put "pane" or "paní" in front of it; just leave the name out.',
     callee.incoming ? 'If the caller says nothing for a while or it is an automated message, say goodbye in one sentence and call hang_up.' : 'If you reach voicemail or an automated message, say in one sentence that you will call again, then call hang_up.',
-    'When the task is done or the person wants to end the call, repeat in one sentence what was agreed, say goodbye and call hang_up. Do not hang up otherwise, and never right after asking a question.',
+    callee.incoming
+      ? 'When the caller has said what they want, end as the task says and call hang_up. Never right after asking a question.'
+      : 'When the task is done or the person wants to end the call, repeat in one sentence what was agreed, say goodbye and call hang_up. Do not hang up otherwise, and never right after asking a question.',
+    'Never comment on yourself or the call: no apologies, nothing about being new, about the line, about speech recognition or a name that came through wrong. If a word sounds odd, ignore it and go on.',
+    'When they refuse to tell you something, accept it and do not ask again.',
     `Today is ${new Date().toLocaleString('cs-CZ', { timeZone: config.settings.timezone })} (${config.settings.timezone}).`,
     `The task from the owner:\n${task.trim()}`,
   ].join('\n\n');
@@ -256,7 +260,7 @@ export async function converse(config: Config, callee: Callee, opening: string, 
         const text = String(message['voicePrompt'] ?? '').trim();
         if (text !== '') session?.say(text);
       } else if (message['type'] === 'interrupt' && mine) {
-        session?.interrupt();
+        session?.interrupt(typeof message['utteranceUntilInterrupt'] === 'string' ? message['utteranceUntilInterrupt'] : undefined);
       }
     });
     ws.on('close', () => {
@@ -419,6 +423,8 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
   let saidInTurn = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
   const running = new Map<string, { name: string; started: number }>();
+  let interruptedAt: string | null = null; // what was heard of the current answer before the other side spoke over it
+  const cut = (heard: string): string => (heard.trim() === '' ? '_(přerušeno, nic nezaznělo)_' : `${heard.trim()} … _(přerušeno)_`);
   const startedAt = Date.now();
   let askedAt: number | null = null; // when the owner's last question arrived, until the first word of the answer
   const seconds = (since: number): string => ((Date.now() - since) / 1000).toFixed(1).replace('.', ',');
@@ -588,7 +594,9 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
           continue;
         }
         send({ type: 'text', token: '', last: true });
-        if (turnText.trim() !== '') transcript.push({ who: 'assistant', text: turnText.trim() });
+        if (interruptedAt !== null) transcript.push({ who: 'assistant', text: cut(interruptedAt) });
+        else if (turnText.trim() !== '') transcript.push({ who: 'assistant', text: turnText.trim() });
+        interruptedAt = null;
         const said = turnAll;
         turnText = '';
         turnAll = '';
@@ -616,14 +624,34 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
       askedAt ??= Date.now();
       push(text);
     },
-    interrupt(): void {
+    /**
+     * The other side spoke over the assistant. `heard` is what Twilio says was
+     * spoken until then: the transcript keeps only that, so it shows what the
+     * caller really heard, not text that was never said (Karel, 9. 10. 2026).
+     */
+    interrupt(heard?: string): void {
       stopTimer();
+      if (heard !== undefined && !warming) {
+        if (turnText.trim() !== '') {
+          interruptedAt = heard;
+        } else {
+          for (let i = transcript.length - 1; i >= 0; i--) {
+            const line = transcript[i]!;
+            if (line.who === 'callee') break;
+            if (line.who === 'assistant') {
+              line.text = cut(heard);
+              break;
+            }
+          }
+        }
+      }
       void session.interrupt().catch(() => {});
     },
     close(): void {
       stopTimer();
       // What was being said when the call ended still belongs in the transcript.
-      if (!warming && turnText.trim() !== '') transcript.push({ who: 'assistant', text: turnText.trim() });
+      if (!warming && interruptedAt !== null) transcript.push({ who: 'assistant', text: cut(interruptedAt) });
+      else if (!warming && turnText.trim() !== '') transcript.push({ who: 'assistant', text: turnText.trim() });
       turnText = '';
       push(null);
       // The empty folder of a call to someone else is not needed any more.

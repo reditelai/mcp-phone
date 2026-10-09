@@ -275,7 +275,7 @@ export async function serve(config: Config): Promise<void> {
         const text = String(message['voicePrompt'] ?? '').trim();
         if (text !== '') call.session.say(text);
       } else if (message['type'] === 'interrupt' && mine) {
-        call.session.interrupt();
+        call.session.interrupt(typeof message['utteranceUntilInterrupt'] === 'string' ? message['utteranceUntilInterrupt'] : undefined);
       }
     });
     ws.on('close', () => {

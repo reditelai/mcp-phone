@@ -84,9 +84,10 @@ const conversationSchema = z
 
 const DEFAULT_INCOMING_TASK = [
   'Someone called the owner, who could not pick up, and the call came to you. Take a message.',
-  'Find out who is calling (name, and company or town if they have one), what they need, whether it is urgent, and when and how the owner should get back to them.',
-  'Do not say where the owner is or what he is doing, do not promise when he will call back, do not arrange anything. Only take the message and say you will pass it on.',
-  'When you have it, repeat the main point in one sentence and say the owner will get the message. Then let the caller finish; when they have nothing more, say goodbye and hang up.',
+  'After the greeting, let the caller say what they want. Listen; do not interview them. Ask only for their name if they have not said it.',
+  'Do not ask for a company, a town or a number: the owner will call back the number they are calling from, unless they say they want another.',
+  'Do not sum up what they said, neither during the call nor at the end. When they have said it, answer only "Vyřídím. Na shledanou." and hang up.',
+  'Do not say where the owner is or what he is doing, do not promise when he will call back, do not arrange anything.',
 ].join(' ');
 
 /**

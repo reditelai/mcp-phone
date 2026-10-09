@@ -119,7 +119,9 @@ async function checkIncoming(config: Config): Promise<number> {
     process.stdout.write(`chyba: příchozí hovory nejsou připravené: ${problems.join('; ')}\n`);
     return 6;
   }
-  process.stdout.write(`ok: příchozí hovory připravené, ${settings.incoming.enabled ? 'zapnuté' : 'vypnuté (záznamník)'}, strop ${settings.incoming.max_minutes} min\n`);
+  const lines = settings.incoming.owner_lines;
+  const filter = lines === undefined ? 'bere každý hovor' : `bere jen hovory přesměrované z čísel majitele nebo přímo z nich (${lines.length}), ostatní odmítne`;
+  process.stdout.write(`ok: příchozí hovory připravené, ${settings.incoming.enabled ? 'zapnuté' : 'vypnuté (záznamník)'}, ${filter}, strop ${settings.incoming.max_minutes} min\n`);
   return 0;
 }
 

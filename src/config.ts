@@ -102,6 +102,11 @@ const incomingSchema = z
     // (holidays, or while it is not set up).
     enabled: z.boolean().default(false),
     listen_port: z.number().int().min(1024).max(65535).default(8788),
+    // The owner's own phone lines. When set, the secretary takes only a call
+    // forwarded from one of them, or a direct call from one of them (for
+    // testing); anything else is rejected as busy (no AI, no recording, no
+    // cost) and only reported. Unset = every call (Karel, 9. 10. 2026).
+    owner_lines: z.array(phoneNumber).min(1).optional(),
     max_minutes: z.number().int().min(1).max(10).default(3),
     // What the caller hears first. It has to say that an AI assistant answers.
     greeting: z

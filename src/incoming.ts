@@ -76,8 +76,8 @@ function statePath(config: Config): string {
 
 /** One message for the assistant, a line of JSON in the queue file. */
 export interface QueuedMessage {
-  /** "rozhovor": the secretary took it; "zaznamnik": a recording while the service was off. */
-  druh: 'rozhovor' | 'zaznamnik';
+  /** "rozhovor": the secretary took it; "zaznamnik": a recording while the service was off; "odmitnuto": rejected, not forwarded from the owner's numbers. */
+  druh: 'rozhovor' | 'zaznamnik' | 'odmitnuto';
   cas: string;
   od: string;
   presmerovano_z: string;
@@ -111,6 +111,31 @@ function twiml(body: string): string {
 function say(config: Config, text: string): string {
   const { settings } = config;
   return `<Say voice="${escapeXml(settings.voice)}" language="${escapeXml(settings.language)}">${escapeXml(text)}</Say>`;
+}
+
+/**
+ * Whether two numbers are the same line. Twilio gives ForwardedFrom without
+ * the country code sometimes (724925753 for +420724925753), so the national
+ * part decides.
+ */
+export function sameNumber(a: string, b: string): boolean {
+  const x = a.replace(/\D/g, '');
+  const y = b.replace(/\D/g, '');
+  if (x.length < 9 || y.length < 9) return false;
+  return x.endsWith(y) || y.endsWith(x);
+}
+
+/**
+ * Whether a call may reach the secretary. With owner_lines set: a call
+ * forwarded from one of the owner's lines, or a direct call from one of them.
+ * The secretary is equally isolated for everybody, so a faked caller ID gains
+ * nothing.
+ */
+export function admitted(config: Config, from: string, forwardedFrom: string): boolean {
+  const lines = config.settings.incoming.owner_lines;
+  if (lines === undefined) return true;
+  const ours = (number: string): boolean => lines.some((line) => sameNumber(line, number));
+  return forwardedFrom !== '' ? ours(forwardedFrom) : ours(from);
 }
 
 /** What a caller gets when the secretary is off: a short message and the beep. */
@@ -162,7 +187,7 @@ export async function serve(config: Config): Promise<void> {
       log(`přepis se nepodařilo zapsat: ${error instanceof Error ? error.message : String(error)}`);
     }
     logCall(config, {
-      who: call.from || 'neznámé číslo',
+      who: `${call.from || 'neznámé číslo'}${call.forwardedFrom ? ` (přesměrováno z ${call.forwardedFrom})` : ''}`,
       kind: 'příchozí',
       info: { sid: call.sid, status: 'completed', duration_seconds: seconds, started: new Date(call.startedAt).toISOString(), ring_seconds: null },
       transcript: file,
@@ -193,6 +218,14 @@ export async function serve(config: Config): Promise<void> {
       const from = form.get('From') ?? '';
       const forwardedFrom = form.get('ForwardedFrom') ?? '';
       response.writeHead(200, { 'Content-Type': 'text/xml' });
+      if (!admitted(config, from, forwardedFrom)) {
+        // Busy at once: nothing plays, nothing records, Twilio does not bill a rejected call.
+        log(`hovor od ${from}: ${forwardedFrom ? `přesměrováno z ${forwardedFrom}, ne z čísel majitele` : 'přímý hovor z čísla, které není majitelovo'}, odmítnuto`);
+        response.end(twiml('<Reject reason="busy"/>'));
+        logCall(config, { who: `${from || 'neznámé číslo'}${forwardedFrom ? ` (přesměrováno z ${forwardedFrom})` : ''}`, kind: 'odmítnuto', info: { sid, status: 'busy', duration_seconds: 0, started: new Date().toISOString(), ring_seconds: null } });
+        enqueue(config, { druh: 'odmitnuto', cas: new Date().toISOString(), od: from, presmerovano_z: forwardedFrom, delka_s: 0, soubor: null });
+        return;
+      }
       if (!incoming.enabled || incoming.greeting === undefined) {
         log(`hovor od ${from}: vypnuto, záznamník`);
         response.end(voicemailTwiml(config));

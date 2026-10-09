@@ -29,3 +29,22 @@ test('voicemail lets the caller leave a recording', () => {
   assert.match(xml, /<Record /);
   assert.match(xml, /Nechte prosím vzkaz/);
 });
+
+test('with owner_lines, only the owner\'s forwarded or direct calls reach the secretary', async () => {
+  const { admitted, sameNumber } = await import('../dist/incoming.js');
+  const c = (lines) => ({ settings: { incoming: { owner_lines: lines } } });
+  const lines = ['+420724925753', '+420704223355'];
+  assert.ok(sameNumber('+420724925753', '724925753'));
+  assert.ok(!sameNumber('+420724925753', '+420704223355'));
+  // without the setting: everybody, as before
+  assert.ok(admitted(c(undefined), '+420777000111', ''));
+  // 1. forwarded from the owner's line (Twilio may drop the country code)
+  assert.ok(admitted(c(lines), '+420777000111', '724925753'));
+  assert.ok(admitted(c(lines), '+420777000111', '+420704223355'));
+  // 2. a direct call from the owner's line
+  assert.ok(admitted(c(lines), '+420724925753', ''));
+  // 3. anything else
+  assert.ok(!admitted(c(lines), '+420777000111', ''));
+  assert.ok(!admitted(c(lines), '+420777000111', '+420777000222'));
+  assert.ok(!admitted(c(lines), '+420724925753', '+420777000222'));
+});

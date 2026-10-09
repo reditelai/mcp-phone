@@ -36,7 +36,7 @@ export interface LogEntry {
   /** "majitel", a name from recipients, or the number dialled. */
   who: string;
   /** "příchozí": the secretary took the call; "záznamník": a recording while the service was off. */
-  kind: 'vzkaz' | 'rozhovor' | 'příchozí' | 'záznamník';
+  kind: 'vzkaz' | 'rozhovor' | 'příchozí' | 'záznamník' | 'odmítnuto';
   /** The message read out, for a one-way call. */
   message?: string;
   info: CallInfo;
@@ -55,8 +55,8 @@ export function logCall(config: Config, entry: LogEntry): void {
     const when = new Intl.DateTimeFormat('cs-CZ', { timeZone: config.settings.timezone, day: 'numeric', month: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(
       entry.info.started === null ? new Date() : new Date(entry.info.started),
     );
-    const incoming = entry.kind === 'příchozí' || entry.kind === 'záznamník';
-    const how = incoming ? `${entry.info.duration_seconds ?? '?'} s` : outcome(entry.info);
+    const incoming = entry.kind === 'příchozí' || entry.kind === 'záznamník' || entry.kind === 'odmítnuto';
+    const how = entry.kind === 'odmítnuto' ? 'obsazovací tón' : incoming ? `${entry.info.duration_seconds ?? '?'} s` : outcome(entry.info);
     let line = `- **${when}**, ${entry.kind}, ${incoming ? 'od' : 'komu'}: ${entry.who}, ${how}.`;
     if (entry.message !== undefined) line += ` „${entry.message.replace(/\s+/g, ' ').trim()}“`;
     if (entry.transcript) line += ` ${entry.kind === 'záznamník' ? 'Nahrávka' : 'Přepis'}: [${entry.transcript.split('/').at(-1)}](${relative(dirname(file), resolve(vault, entry.transcript)).split('\\').join('/')})`;

@@ -44,9 +44,10 @@ import { callParties, deleteRecording, downloadRecording, findNumber, listRecord
 
 /** Base of every address of the service: public_url/prichozi/<secret>. */
 export function incomingBase(config: Config): string | null {
-  const { conversation: conv, incoming } = config.settings;
-  if (conv.public_url === undefined || incoming.path_secret === undefined) return null;
-  return `${conv.public_url}/prichozi/${incoming.path_secret}`;
+  const conv = config.settings.conversation;
+  const secret = config.keys.incoming_secret;
+  if (conv.public_url === undefined || secret === undefined) return null;
+  return `${conv.public_url}/prichozi/${secret}`;
 }
 
 /**
@@ -60,7 +61,7 @@ export function incomingProblems(config: Config): string[] {
   const problems: string[] = [];
   if (conv.public_url === undefined) problems.push('chybí conversation.public_url: příchozí hovory potřebují stálou adresu (server s doménou nebo pevný tunel)');
   if (conv.tunnel === 'quick') problems.push('conversation.tunnel je "quick": zkušební tunel mění adresu, pro příchozí hovory nejde');
-  if (incoming.path_secret === undefined) problems.push('chybí incoming.path_secret');
+  if (config.keys.incoming_secret === undefined) problems.push('chybí tajná část adresy v souboru s klíči (spusť --setup-incoming)');
   if (incoming.greeting === undefined) problems.push('chybí incoming.greeting (co volající uslyší, s „AI")');
   return problems;
 }
@@ -127,7 +128,7 @@ export async function serve(config: Config): Promise<void> {
   const problems = incomingProblems(config);
   if (problems.length > 0) throw new Error(`Příchozí hovory nejdou spustit: ${problems.join('; ')}.`);
   const base = incomingBase(config)!;
-  const prefix = `/prichozi/${incoming.path_secret}`;
+  const prefix = `/prichozi/${config.keys.incoming_secret}`;
   const vaultDir = conversationVaultDir(config);
   const claude = findExecutable(conv.claude_path);
   const log = (line: string): void => {

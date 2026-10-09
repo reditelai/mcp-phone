@@ -100,9 +100,6 @@ const incomingSchema = z
     // Off = the caller hears voicemail_text and can leave a recording
     // (holidays, or while it is not set up).
     enabled: z.boolean().default(false),
-    // Unguessable part of the webhook address Twilio calls; nobody else
-    // can open the service without it.
-    path_secret: z.string().regex(/^[A-Za-z0-9_-]{24,}$/, 'aspoň 24 znaků z písmen, číslic, - a _').optional(),
     listen_port: z.number().int().min(1024).max(65535).default(8788),
     max_minutes: z.number().int().min(1).max(10).default(3),
     // What the caller hears first. It has to say that an AI assistant answers.
@@ -164,6 +161,10 @@ const keysSchema = z
     // Optional: the call session then bills this Anthropic API key instead of
     // the Claude subscription it is logged in with.
     anthropic_api_key: z.string().startsWith('sk-ant-', 'klíč Anthropicu začíná sk-ant-').optional(),
+    // Unguessable part of the address Twilio sends incoming calls to, the only
+    // thing that guards it. Here and not in the settings: those are backed up
+    // to git (Věrka 9. 10. 2026). --setup-incoming writes it, nobody reads it.
+    incoming_secret: z.string().regex(/^[A-Za-z0-9_-]{24,}$/, 'aspoň 24 znaků z písmen, číslic, - a _').optional(),
   })
   .strict();
 
@@ -173,6 +174,8 @@ export interface Config {
   settings: Settings;
   keys: Keys;
   configPath: string;
+  /** The passwords file the keys came from; null when they came from the environment. */
+  passwordsPath: string | null;
 }
 
 function describe(error: z.ZodError): string {
@@ -203,7 +206,8 @@ function keysFromEnv(): Keys | null {
   const api_key = process.env['TWILIO_API_KEY'];
   const api_secret = process.env['TWILIO_API_SECRET'];
   if (account_sid === undefined && api_key === undefined && api_secret === undefined) return null;
-  const parsed = keysSchema.safeParse({ account_sid, api_key, api_secret });
+  const incoming_secret = process.env['PHONE_INCOMING_SECRET'];
+  const parsed = keysSchema.safeParse({ account_sid, api_key, api_secret, ...(incoming_secret !== undefined ? { incoming_secret } : {}) });
   if (!parsed.success) throw new ConfigError(`Klíče Twilia v proměnných prostředí: ${describe(parsed.error)}`);
   return parsed.data;
 }
@@ -223,8 +227,9 @@ export async function loadConfig(configPath: string): Promise<Config> {
   }
 
   let keys = keysFromEnv();
+  let passwordsPath: string | null = null;
   if (keys === null) {
-    const passwordsPath =
+    passwordsPath =
       settings.passwords_file !== undefined
         ? resolve(vaultRoot() ?? dirname(configPath), settings.passwords_file)
         : vaultPasswordsPath();
@@ -239,5 +244,5 @@ export async function loadConfig(configPath: string): Promise<Config> {
     keys = parsedKeys.data;
   }
 
-  return { settings, keys, configPath };
+  return { settings, keys, configPath, passwordsPath };
 }

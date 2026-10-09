@@ -8,7 +8,8 @@
  * the settings, and enforces quiet hours and a daily limit itself.
  */
 
-import { readFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
 
 import { McpServer } from '@modelcontextprotocol/server';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
@@ -100,7 +101,7 @@ async function check(argv: string[]): Promise<number> {
  */
 async function checkIncoming(config: Config): Promise<number> {
   const { settings, keys } = config;
-  if (!settings.incoming.enabled && settings.incoming.path_secret === undefined) return 0;
+  if (!settings.incoming.enabled && config.keys.incoming_secret === undefined) return 0;
   const problems = incomingProblems(config);
   const base = incomingBase(config);
   if (base !== null) {
@@ -122,10 +123,19 @@ async function checkIncoming(config: Config): Promise<number> {
   return 0;
 }
 
-/** --setup-incoming: points the owner's Twilio number to the service. */
+/**
+ * --setup-incoming: makes the secret part of the address if there is none yet
+ * (into the passwords file, never printed) and points the owner's Twilio
+ * number to the service.
+ */
 async function setupIncoming(argv: string[]): Promise<number> {
   try {
-    const config = await loadConfig(resolveConfigPath(argv));
+    let config = await loadConfig(resolveConfigPath(argv));
+    if (config.keys.incoming_secret === undefined) {
+      if (config.passwordsPath === null) throw new ConfigError('Klíče jsou v proměnných prostředí: tajnou část adresy dej do PHONE_INCOMING_SECRET.');
+      addToPasswordsFile(config.passwordsPath, 'incoming_secret', randomBytes(32).toString('base64url'));
+      config = await loadConfig(resolveConfigPath(argv));
+    }
     const problems = incomingProblems(config);
     if (problems.length > 0) {
       process.stdout.write(`chyba: ${problems.join('; ')}\n`);
@@ -138,6 +148,18 @@ async function setupIncoming(argv: string[]): Promise<number> {
   } catch (error) {
     process.stdout.write(`chyba: ${error instanceof Error ? error.message : String(error)}\n`);
     return 6;
+  }
+}
+
+/** Adds one value to the passwords file without reading any of it out. */
+function addToPasswordsFile(path: string, key: string, value: string): void {
+  const data = JSON.parse(readFileSync(path, 'utf8').replace(/^\uFEFF/, '')) as Record<string, unknown>;
+  data[key] = value;
+  writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 });
+  try {
+    chmodSync(path, 0o600);
+  } catch {
+    // Windows: the file stays as it was
   }
 }
 

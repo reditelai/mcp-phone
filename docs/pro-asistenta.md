@@ -427,17 +427,17 @@ Sekretářka: když majitel nezvedá, operátor hovor přesměruje na číslo u 
 
 ## Nastavení
 
-1. **Do `system/phone.json`** přidej blok `incoming`. Zatím s `"enabled": false`:
+1. **Do `system/phone.json`** přidej blok `incoming`, zatím s `"enabled": false`:
    ```json
    "incoming": {
      "enabled": false,
-     "path_secret": "TAJNE",
      "greeting": "Dobrý den, tady Miládka, AI asistentka Jana Nováka. Jan teď nemůže k telefonu, můžu mu něco vyřídit?",
      "max_minutes": 3
    }
    ```
-   `TAJNE` vygeneruj příkazem `node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"` a nikam jinam ho nepiš: je to část adresy, na kterou Twilio posílá hovory. Znění `greeting` navrhni a nech majitele schválit. Musí obsahovat „AI“.
-2. **Služba.** Ulož `~/.config/systemd/user/mcp-phone-prichozi.service` (cesty skutečné, absolutní):
+   Znění `greeting` navrhni a nech majitele schválit. Musí obsahovat „AI“.
+2. **Tajná adresa a číslo**: `node .doplnky/mcp-phone/mcp-phone.mjs --setup-incoming --config system/phone.json`. Vygeneruje tajnou část adresy, na kterou Twilio posílá hovory, a zapíše ji do souboru s klíči (`incoming_secret`), ne do nastavení: nastavení se zálohuje do gitu a tajná adresa je jediná ochrana služby. **Nikdy ji nečti ani nevypisuj**, stejně jako klíče. Pak nasměruje číslo v Twiliu na službu. Opakované spuštění tajnou adresu nemění.
+3. **Služba.** Ulož `~/.config/systemd/user/mcp-phone-prichozi.service` (cesty skutečné, absolutní):
    ```
    [Unit]
    Description=Miládka: příchozí hovory (mcp-phone)
@@ -452,16 +452,14 @@ Sekretářka: když majitel nezvedá, operátor hovor přesměruje na číslo u 
    [Install]
    WantedBy=default.target
    ```
-   Pak `systemctl --user daemon-reload && systemctl --user enable --now mcp-phone-prichozi`. Výpis služby: `journalctl --user -u mcp-phone-prichozi -n 30`. První řádek musí říct „služba běží“.
-3. **Adresa zvenku**: `curl https://ADRESA/prichozi/TAJNE/health` musí vrátit `ok`. Když ne, proxy (podmínka 4).
+   Pak `systemctl --user daemon-reload && systemctl --user enable --now mcp-phone-prichozi`. Výpis služby: `journalctl --user -u mcp-phone-prichozi -n 30`. Musí v něm být „služba běží“.
 4. **Záložní odpověď v Twiliu** (když služba neběží, volající nechá vzkaz místo chyby). Uživatel v konzoli Twilia založí **TwiML Bin** (v hledání konzole „TwiML Bins“) s tímhle obsahem a u svého čísla v **Voice Configuration** ho vybere jako **Primary handler fails**:
    ```xml
    <Response><Say language="cs-CZ">Dobrý den, teď to nikdo nemůže vzít. Nechte prosím vzkaz po pípnutí.</Say><Record maxLength="120" playBeep="true" timeout="5"/></Response>
    ```
-5. **Číslo na službu**: `node .doplnky/mcp-phone/mcp-phone.mjs --setup-incoming --config system/phone.json`.
-6. **Kontrola**: `--check` musí vypsat i řádek `ok: příchozí hovory připravené`. Řádek `chyba: příchozí hovory nejsou připravené: …` říká přesně, co chybí. Oprav a zkontroluj znovu, jinak nepokračuj.
-7. **Zapnutí a zkouška**: `"enabled": true`, `systemctl --user restart mcp-phone-prichozi`. Uživatel zavolá z jiného telefonu **přímo** na číslo u Twilia. Musí ho vzít sekretářka a v `system/hovory/` musí přibýt přepis a řádek v deníku.
-8. **Teprve teď přesměrování u operátora**: podmíněné přesměrování na číslo u Twilia, když majitel nezvedá, je nedostupný nebo obsazený. Nastavuje se v telefonu nebo u operátora (standardní kódy GSM `**61*ČÍSLO#` nezvedá, `**62*ČÍSLO#` nedostupný, `**67*ČÍSLO#` obsazeno; co přesně platí, ať si uživatel ověří u svého operátora). Pak ať mu někdo zavolá a nezvedne to. Ověř, že vzkaz přišel a že v něm je číslo volajícího.
+5. **Kontrola**: `--check` musí vypsat i řádek `ok: příchozí hovory připravené`: služba odpovídá zvenku přes proxy, číslo míří na ni a záložní odpověď je nastavená. Řádek `chyba: příchozí hovory nejsou připravené: …` říká přesně, co chybí. Oprav a zkontroluj znovu, jinak nepokračuj.
+6. **Zapnutí a zkouška**: `"enabled": true`, `systemctl --user restart mcp-phone-prichozi`. Uživatel zavolá z jiného telefonu **přímo** na číslo u Twilia. Musí ho vzít sekretářka a v `system/hovory/` musí přibýt přepis a řádek v deníku.
+7. **Teprve teď přesměrování u operátora**: podmíněné přesměrování na číslo u Twilia, když majitel nezvedá, je nedostupný nebo obsazený. Nastavuje se v telefonu nebo u operátora (standardní kódy GSM `**61*ČÍSLO#` nezvedá, `**62*ČÍSLO#` nedostupný, `**67*ČÍSLO#` obsazeno; co přesně platí, ať si uživatel ověří u svého operátora). Pak ať mu někdo zavolá a nezvedne to. Ověř, že vzkaz přišel a že v něm je číslo volajícího.
 
 ## Provoz
 

@@ -4,7 +4,8 @@ import { test } from 'node:test';
 
 import { incomingBase, incomingProblems, voicemailTwiml } from '../dist/incoming.js';
 
-const config = (conversation, incoming) => ({
+const config = (conversation, incoming, secret) => ({
+  keys: secret === undefined ? {} : { incoming_secret: secret },
   settings: {
     voice: 'ElevenLabs.x', language: 'cs-CZ',
     conversation: { tunnel: 'none', ...conversation },
@@ -14,13 +15,13 @@ const config = (conversation, incoming) => ({
 
 test('incoming calls need a fixed address, a secret and a greeting', () => {
   assert.equal(incomingProblems(config({}, {})).length, 3);
-  assert.ok(incomingProblems(config({ public_url: 'https://t.example', tunnel: 'quick' }, { path_secret: 'x'.repeat(24), greeting: 'Dobrý den, AI asistentka.' })).some((p) => p.includes('quick')));
-  assert.deepEqual(incomingProblems(config({ public_url: 'https://t.example' }, { path_secret: 'x'.repeat(24), greeting: 'Dobrý den, AI asistentka.' })), []);
+  assert.ok(incomingProblems(config({ public_url: 'https://t.example', tunnel: 'quick' }, { greeting: 'Dobrý den, AI asistentka.' }, 'x'.repeat(24))).some((p) => p.includes('quick')));
+  assert.deepEqual(incomingProblems(config({ public_url: 'https://t.example' }, { greeting: 'Dobrý den, AI asistentka.' }, 'x'.repeat(24))), []);
 });
 
 test('the address of the service', () => {
-  assert.equal(incomingBase(config({ public_url: 'https://t.example' }, { path_secret: 'abc' })), 'https://t.example/prichozi/abc');
-  assert.equal(incomingBase(config({}, { path_secret: 'abc' })), null);
+  assert.equal(incomingBase(config({ public_url: 'https://t.example' }, {}, 'abc')), 'https://t.example/prichozi/abc');
+  assert.equal(incomingBase(config({}, {}, 'abc')), null);
 });
 
 test('voicemail lets the caller leave a recording', () => {

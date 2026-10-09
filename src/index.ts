@@ -17,7 +17,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { loadConfig, OWNER, type Config } from './config.js';
 import { ConfigError } from './errors.js';
 import { bundledVersion, miladkaRequired, outsideMiladka, vaultConfigPath } from './location.js';
-import { inQuietHours, startOfToday } from './rules.js';
+import { inQuietHours, ownerRule, startOfToday } from './rules.js';
 import { registerCallTools } from './tools/call.js';
 import { registerConverseTool, registerConverseWithTool } from './tools/converse.js';
 import { registerReloadTool } from './tools/reload.js';
@@ -53,7 +53,8 @@ function instructions(config: Config): string {
   const others = Object.keys(settings.recipients);
   return [
     'This server phones people and reads them a message out loud.',
-    `The owner is "${OWNER}". Call the owner on your own only when something cannot wait and writing would not reach them in time.`,
+    `The owner is "${OWNER}".`,
+    ownerRule(settings),
     others.length > 0
       ? `Others that may be called, only when the owner asks: ${others.join(', ')}.`
       : 'Nobody else may be called by name.',

@@ -136,6 +136,12 @@ const settingsSchema = z
     // tell anything from the notes and mail, and the only one an urgent call
     // reaches during quiet hours (Karel, 7. 10. 2026).
     owner: phoneNumber,
+    // When Miládka calls the owner on her own: his own words, one case per
+    // item ("když napíše kdokoli od Nováků"). When to call is his setting, not
+    // a built-in rule (Karel, 9. 10. 2026). Unset = only when he asks; an empty
+    // list says the same explicitly. The server hands the list to the assistant
+    // in its instructions, so it holds in every conversation.
+    call_owner_when: z.array(z.string().min(3).max(300)).max(20).optional(),
     // Others she may call, only when the owner asks and only with the text he
     // gives. Empty means nobody, not anybody.
     recipients: z.record(z.string().min(1), phoneNumber).default({}),

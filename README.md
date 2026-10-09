@@ -1,6 +1,6 @@
 # mcp-phone
 
-MCP server, přes který asistent zavolá a přečte vzkaz. Je to doplněk [Miládky](https://miladka.cz) a běží jen v ní: když v poště něco hoří a psaní by k vám nedošlo včas, Miládka vám zavolá.
+MCP server, přes který asistent zavolá a přečte vzkaz. Je to doplněk [Miládky](https://miladka.cz) a běží jen v ní: Miládka vám zavolá, když nastane něco z toho, co jí sami určíte, a na požádání.
 
 **Je to addon pro pokročilé.** Potřebujete vlastní účet u [Twilia](https://www.twilio.com) s platební kartou a koupené telefonní číslo (u českého čísla Twilio chce doklad totožnosti a adresu). Za hovory platíte Twiliu, řádově korunu za minutu.
 

@@ -66,3 +66,17 @@ export function checkMessage(settings: Settings, message: string): string {
 export function startOfToday(timezone: string, now: Date = new Date()): Date {
   return new Date(now.getTime() - minutesNow(timezone, now) * 60_000 - now.getUTCSeconds() * 1000 - now.getUTCMilliseconds());
 }
+
+/**
+ * When the assistant may call the owner on her own: only in the cases he set
+ * (call_owner_when). An instruction, not a limit: the server cannot tell whether
+ * the owner asked for a call. It goes into the server instructions, which the
+ * assistant has in every conversation.
+ */
+export function ownerRule(settings: Settings): string {
+  const cases = settings.call_owner_when ?? [];
+  if (cases.length === 0) {
+    return 'The owner has not set when you may call on your own, so call him only when he asks you to; otherwise write.';
+  }
+  return `Call the owner on your own only in the cases he set: ${cases.map((c) => `"${c}"`).join('; ')}. Anything else, write.`;
+}

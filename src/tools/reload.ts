@@ -31,6 +31,7 @@ export function registerReloadTool(server: McpServer, current: () => Config, rep
         const { settings } = config;
         return asJson({
           reloaded: true,
+          call_owner_when: settings.call_owner_when ?? [],
           recipients: Object.keys(settings.recipients),
           call_other_numbers: settings.call_other_numbers,
           voice: settings.voice,

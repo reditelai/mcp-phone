@@ -5,6 +5,18 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.0] - 2026-10-09
+
+Kdy vám Miládka zavolá sama, určujete vy: při nastavení se zeptá a bez vašich pravidel volá jen na požádání.
+
+- Nové nastavení `call_owner_when`: případy, kdy smí majiteli zavolat sama od sebe, jeho slovy. Server je předává asistentce v instrukcích každé konverzace a ukáže je `tel_reload_config`. Prázdné nebo chybí = jen na jeho pokyn. Dřív volala podle vlastního úsudku, „když něco hoří".
+- Návod: při nastavení otázka „Kdy vám mám zavolat sama od sebe?", u sekretářky jestli volat, když volající řekne, že to spěchá.
+
+### Při aktualizaci
+
+- **Bez `call_owner_when` Miládka sama od sebe nevolá.** Po aktualizaci, v nové konverzaci, se majitele zeptej, kdy mu má volat sama od sebe (návod, Krok 5, bod 2), zapiš jeho případy do `call_owner_when` a `tel_reload_config`. Když dřív něco takového řekl (v pravidlech nebo v deníku), nabídni mu to jako návrh, ale zapiš až po jeho souhlasu.
+- Když běží příchozí hovory, po výměně souboru `systemctl --user restart mcp-phone-prichozi`.
+
 ## [0.2.0] - 2026-10-09
 
 Příchozí hovory: když nezvedáte, Miládka na serveru vezme přesměrovaný hovor jako sekretářka a předá vám vzkaz.

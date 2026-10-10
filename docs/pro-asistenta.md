@@ -410,7 +410,7 @@ Zavolá jinému člověku a domluví s ním jednu konkrétní věc: zjistit info
 
 # Část D - Příchozí hovory (jen server)
 
-Sekretářka: když majitel nezvedá, operátor hovor přesměruje na číslo u Twilia a Miládka ho vezme. Nechá volajícího říct, co chce, zeptá se nanejvýš na jméno a skončí „Vyřídím. Na shledanou.“ Nic neprozradí, neslíbí ani neshrnuje. Vzkaz pak dostaneš ty a předáš ho majiteli.
+Sekretářka: když majitel nezvedá, operátor hovor přesměruje na číslo u Twilia a Miládka ho vezme. Nechá volajícího říct, co chce, zeptá se nanejvýš na jméno, a když si není jistá, že domluvil, zeptá se „Je to všechno?“. Skončí jednou krátkou větou, co vyřídí, a rozloučí se. Pauzu ve vzkazu přečká (server s odpovědí chvíli počká) a beze slova zavěsit nejde (server to odmítne). Nic neprozradí ani neslíbí. Vzkaz pak dostaneš ty a předáš ho majiteli.
 
 **Tohle je nejnáročnější část addonu a zasahuje do majitelova telefonu.** Přesměrování u operátora se nastavuje až úplně na konci, když všechno ostatní prokazatelně funguje. Napůl udělané nastavení znamená, že volající uslyší chybu nebo nic. **Když kterákoli podmínka níž neplatí, nepokračuj.** Řekni uživateli, co chybí, a skonči. Nic nenastavuj „zatím“.
 

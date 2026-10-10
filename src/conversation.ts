@@ -354,6 +354,26 @@ const FILLERS: Record<string, { first: string; still: string; again: string }> =
   cs: { first: 'Moment, podívám se.', still: 'Pořád hledám.', again: 'Ještě chvilku.' },
   en: { first: 'One moment, let me look.', still: 'Still looking.', again: 'Just a moment more.' },
 };
+/**
+ * How long the secretary waits after the caller stops before answering. Speech
+ * recognition sends a message said in pieces as separate prompts, and a pause
+ * is not the end (Karel, 10. 10. 2026: a message in two parts and a "Jo?" got a
+ * hang-up without a word). Pieces within this window are answered as one.
+ */
+const INCOMING_PAUSE_MS = 1_500;
+
+/**
+ * Why hang_up must wait, or null when it may end the call. Enforced here, not
+ * only asked for in the prompt: a call must not end in silence (Karel,
+ * 10. 10. 2026) nor right after a question (9. 10. 2026).
+ */
+export function hangUpRefusal(said: string): string | null {
+  const text = said.trim();
+  if (text === '') return 'You have not said anything yet. First say one short sentence: repeat the core of the message (who and what it is about) and say goodbye. Then call hang_up.';
+  if (text.endsWith('?')) return 'You just asked a question. Do not hang up: wait for the answer.';
+  return null;
+}
+
 /** First "still looking" after this long, then again every AGAIN_MS (Karel, 8. 10. 2026: "klidně dřív"). */
 const STILL_MS = 8_000;
 const AGAIN_MS = 15_000;
@@ -432,6 +452,8 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
   const running = new Map<string, { name: string; started: number }>();
   let busy = false; // a turn is running
   let interruptedAt: string | null = null; // what was heard of the current answer before the other side spoke over it
+  let held: string[] = []; // the secretary's caller, pieces said since the last pause
+  let holdTimer: ReturnType<typeof setTimeout> | null = null;
   const cut = (heard: string): string => (heard.trim() === '' ? '_(přerušeno, nic nezaznělo)_' : `${heard.trim()} … _(přerušeno)_`);
   const startedAt = Date.now();
   let askedAt: number | null = null; // when the owner's last question arrived, until the first word of the answer
@@ -502,12 +524,9 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
     name: 'phone_call',
     tools: [
       tool('hang_up', 'End the phone call after your last sentence has been spoken. Only after saying goodbye.', {}, async () => {
-        // A goodbye that ends with a question is not a goodbye: the other
-        // side is about to answer (Karel, 9. 10. 2026: "Chceš ještě něco
-        // probrat, nebo to je všechno?" and the line went dead).
-        if (turnAll.trim().endsWith('?')) {
-          return { content: [{ type: 'text', text: 'You just asked a question. Do not hang up: wait for the answer.' }], isError: true };
-        }
+        // Not without a word, not right after a question (hangUpRefusal).
+        const refusal = hangUpRefusal(turnAll);
+        if (refusal !== null) return { content: [{ type: 'text', text: refusal }], isError: true };
         hangUp = true;
         return { content: [{ type: 'text', text: 'The call ends once your last sentence has been spoken. Say nothing more.' }] };
       }),
@@ -636,6 +655,19 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
       // recognition split one utterance in two): drop the half-finished turn,
       // so that both parts get one answer, not two in a row (Karel, 9. 10. 2026).
       if (busy && !saidInTurn && !warming) void session.interrupt().catch(() => {});
+      // The secretary waits out a pause before answering: the pieces of one
+      // message go to her together (INCOMING_PAUSE_MS).
+      if (callee.incoming === true && !warming) {
+        held.push(text);
+        if (holdTimer !== null) clearTimeout(holdTimer);
+        holdTimer = setTimeout(() => {
+          holdTimer = null;
+          const all = held.join(' ');
+          held = [];
+          push(all);
+        }, INCOMING_PAUSE_MS);
+        return;
+      }
       push(text);
     },
     /**
@@ -663,6 +695,7 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
     },
     close(): void {
       stopTimer();
+      if (holdTimer !== null) clearTimeout(holdTimer);
       // What was being said when the call ended still belongs in the transcript.
       if (!warming && interruptedAt !== null) transcript.push({ who: 'assistant', text: cut(interruptedAt) });
       else if (!warming && turnText.trim() !== '') transcript.push({ who: 'assistant', text: turnText.trim() });

@@ -5,6 +5,19 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.2] - 2026-10-10
+
+Sekretářka přečká pauzu ve vzkazu a nikdy nezavěsí beze slova.
+
+- Příchozí hovor: server s odpovědí sekretářky chvíli počká (1,5 s) a kousky vzkazu oddělené pauzou jí předá najednou. 10. 10. 2026 zavěsila na vzkaz ve dvou částech a „Jo?“, aniž promluvila.
+- `hang_up` odmítne server, dokud v tahu nezaznělo ani slovo, stejně jako hned po otázce. Platí pro všechny hovory.
+- Výchozí úkol sekretářky (`incoming.task`): pauza není konec, při nejistotě „Je to všechno?“, na konci krátce jádro vzkazu (kdo a o co jde), ne doslova.
+
+### Při aktualizaci
+
+- Když má nastavení vlastní `incoming.task`, nová pravidla výchozího úkolu se ho netýkají: nabídni majiteli doplnit do něj větu o pauze a „Je to všechno?“ (znění ve výchozím úkolu v `src/config.ts`), změň až s jeho souhlasem.
+- Když běží příchozí hovory, po výměně souboru `systemctl --user restart mcp-phone-prichozi`.
+
 ## [0.3.1] - 2026-10-09
 
 Vzkaz od sekretářky Miládka jen napíše, nevolá.

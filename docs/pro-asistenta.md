@@ -312,7 +312,7 @@ Při `tel_converse` server otevře na dobu hovoru malý most (WebSocket) a zavol
 - nenačte žádné nastavení, háčky ani MCP servery ze souborů - jen čtení poznámek ve vaultu (mimo `.miladka/secrets/`, `.git` a `.env`), nástroj „zavěsit" a servery, které jí výslovně dáš v nastavení,
 - **nemůže nic odeslat, změnit ani smazat**; co majitel v hovoru chce, připraví jako návrh a ty to po hovoru dotáhneš s jeho písemným souhlasem,
 - bere si osobnost z `persona_file` (výchozí `CLAUDE.md` ve vaultu), takže mluví jako ty,
-- po rozloučení sama zavěsí,
+- po rozloučení sama zavěsí, ale až rozloučení dozní; když druhá strana mezitím promluví, hovor pokračuje,
 - **rozjede se, zatímco telefon zvoní**, takže první odpověď nečeká na start,
 - **nikdy nemlčí:** když sáhne po nástroji a ještě nic neřekla, most sám řekne „Moment, podívám se", po 8 vteřinách „Pořád hledám" a pak každých 15 vteřin „Ještě chvilku",
 - **poštu prohledává úsporně, hlídá to server:** jen jednu schránku (hledání ve všech odmítne), nejvýš 3 výsledky, jednu zprávu do 3000 znaků, celé vlákno vůbec,
@@ -364,7 +364,7 @@ Do `system/phone.json` přidej oddíl `conversation`:
 | `others_introduction` | první věta hovoru s kýmkoli jiným než majitelem: kdo volá a že je to AI asistentka, třeba „Dobrý den, tady Miládka, AI asistentka Karla Derfla.“ Musí obsahovat slovo „AI“. Bez ní `tel_converse_with` nefunguje. Znění navrhni a nech majitele schválit. | žádné |
 | `voice_tuning` | nastavení hlasu ElevenLabs v rozhovoru, `rychlost_stabilita_podobnost` (rychlost 0,7 až 1,2, ostatní 0 až 1), třeba `"1.0_1.0_0.8"`. Vyšší stabilita drží hlas stejnější mezi větami, když majitel slyší kolísání hlasitosti nebo tónu. Posuzuje se poslechem v telefonu. `null` = výchozí nastavení ElevenLabs. | `"1.0_1.0_0.8"` |
 | `transcription` | rozpoznávání řeči v rozhovoru i u sekretářky, `{"provider": "Deepgram", "model": "nova-3-general"}` nebo `{"provider": "Google"}`, `null` = co vybere Twilio (pro češtinu Google). Česky umí Google a Deepgram `nova-3-general` a `nova-2-general`, Deepgram `flux` ne. Ve zkušebních hovorech 10. 10. 2026 dal Deepgram líp čísla a místa. Po změně u příchozích hovorů `systemctl --user restart mcp-phone-prichozi`. | Deepgram `nova-3-general` |
-| `timings` | časy v přepisu: první slovo po otázce, běh nástrojů, start relace; na ladění rychlosti | `false` |
+| `timings` | časy v přepisu: první slovo po otázce, rozestup řádků volajícího, běh nástrojů, start relace; na ladění rychlosti | `false` |
 | `vault_read` | relace smí číst poznámky | `true` |
 | `mcp_servers`, `allowed_tools` | další servery pro relaci a nástroje z nich, které smí použít. Pro poštu z Multigmailu stačí `mg_list_accounts`, `mg_search_threads` a `mg_get_message` (s předponou `mcp__multi-gmail__`); celé vlákno, hledání ve všech schránkách a cokoli, co ve schránce něco mění (i koncept), server za hovoru stejně odmítne. **Nikdy WhatsApp** - drží jedno spojení a druhá relace by ho shodila. Jen servery spouštěné z počítače (`command`/`args`). Konektory z claude.ai do hovoru dát nejde, třeba Google Calendar nebo Gmail. Kdo má poštu napojenou jen přes Claude, bez doplňku Multigmail, nemá ji v hovoru vůbec. Hovor pak umí jen poznámky. | žádné |
 
@@ -417,7 +417,7 @@ Zavolá jinému člověku a domluví s ním jednu konkrétní věc: zjistit info
 
 # Část D - Příchozí hovory (jen server)
 
-Sekretářka: když majitel nezvedá, operátor hovor přesměruje na číslo u Twilia a Miládka ho vezme. Nechá volajícího říct, co chce, zeptá se nanejvýš na jméno, a když si není jistá, že domluvil, zeptá se „Je to všechno?“. Skončí jednou krátkou větou, co vyřídí, a rozloučí se. Pauzu ve vzkazu přečká (Twilio počká na ticho, `incoming.speech_timeout_ms`) a beze slova zavěsit nejde (server to odmítne). Nic neprozradí ani neslíbí. Vzkaz pak dostaneš ty a předáš ho majiteli.
+Sekretářka: když majitel nezvedá, operátor hovor přesměruje na číslo u Twilia a Miládka ho vezme. Nechá volajícího říct, co chce, zeptá se nanejvýš na jméno, a když si není jistá, že domluvil, zeptá se „Je to všechno?“. Skončí jednou krátkou větou, co vyřídí, a rozloučí se. Pauzu ve vzkazu přečká (Twilio počká na ticho, `incoming.speech_timeout_ms`) beze slova zavěsit nejde (server to odmítne) a když volající mluví dál, než rozloučení dozní, hovor nezavěsí. Nic neprozradí ani neslíbí. Vzkaz pak dostaneš ty a předáš ho majiteli.
 
 **Tohle je nejnáročnější část addonu a zasahuje do majitelova telefonu.** Přesměrování u operátora se nastavuje až úplně na konci, když všechno ostatní prokazatelně funguje. Napůl udělané nastavení znamená, že volající uslyší chybu nebo nic. **Když kterákoli podmínka níž neplatí, nepokračuj.** Řekni uživateli, co chybí, a skonči. Nic nenastavuj „zatím“.
 

@@ -228,6 +228,44 @@ export function listen(server: Server, host: string, port: number): Promise<void
   });
 }
 
+/**
+ * A hang-up the session asked for, carried out only once the goodbye has been
+ * spoken. hang_up is checked before Twilio says a word of the answer, so a
+ * caller who speaks or cuts in before the goodbye is over calls it off and the
+ * call goes on (10. 10. 2026: the caller cut in on a goodbye nobody heard and
+ * went on talking, and the call ended anyway).
+ */
+export class PendingHangUp {
+  private wanted = false;
+  private done = false;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  constructor(private readonly end: () => void) {}
+  /** Asked for and not called off: what the session says from now on is not spoken. */
+  get requested(): boolean {
+    return this.wanted;
+  }
+  request(): void {
+    if (!this.done) this.wanted = true;
+  }
+  /** The turn is over: end the call once the goodbye has had `ms` to be spoken. */
+  schedule(ms: number): void {
+    if (!this.wanted || this.done || this.timer !== null) return;
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      this.done = true;
+      this.end();
+    }, ms);
+  }
+  /** The caller spoke: no hang-up. True when one was asked for and has not happened yet. */
+  cancel(): boolean {
+    if (this.done || !this.wanted) return false;
+    this.wanted = false;
+    if (this.timer !== null) clearTimeout(this.timer);
+    this.timer = null;
+    return true;
+  }
+}
+
 /** Rough time the synthesizer needs to say a text, so a hang-up does not cut the goodbye. */
 export function speakingMs(text: string): number {
   return Math.max(1500, text.length * 70);
@@ -456,8 +494,12 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
   const filler = FILLERS[config.settings.language.slice(0, 2)] ?? FILLERS['en']!;
   const pending: Array<string | null> = [];
   let wake: (() => void) | null = null;
-  let hangUp = false;
   let ws: WebSocket | null = null;
+  const hangUp = new PendingHangUp(() => {
+    onHangUp();
+    send({ type: 'end' });
+  });
+  let hangUpCalledOff = false; // the caller spoke before the goodbye was over, until the next turn learns it
   let warming = true;
   let ready: () => void = () => {};
   const warmed = new Promise<void>((done) => (ready = done));
@@ -549,7 +591,7 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
           cutOff: lastCutAt > turnStartedAt,
         });
         if (refusal !== null) return { content: [{ type: 'text', text: refusal }], isError: true };
-        hangUp = true;
+        hangUp.request();
         return { content: [{ type: 'text', text: 'The call ends once your last sentence has been spoken. Say nothing more.' }] };
       }),
     ],
@@ -602,7 +644,7 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
         };
         if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta' && event.delta.text) {
           // After hang_up the goodbye has been said; anything more would follow it.
-          if (hangUp) continue;
+          if (hangUp.requested) continue;
           stopTimer();
           if (!warming) firstSound();
           turnText += event.delta.text;
@@ -653,10 +695,7 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
         turnText = '';
         turnAll = '';
         saidInTurn = false;
-        if (hangUp) {
-          onHangUp();
-          setTimeout(() => send({ type: 'end' }), speakingMs(said));
-        }
+        hangUp.schedule(speakingMs(said));
       }
     }
   })()
@@ -672,14 +711,24 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
       ws = socket;
     },
     say(said: string): void {
+      const previous = lastCallerAt;
       transcript.push({ who: 'callee', text: said });
+      // When the caller's lines come: shows whether speech recognition splits
+      // one utterance into pieces (Věrka, 10. 10. 2026).
+      if (!warming && previous > 0) timing(`řádek volajícího ${seconds(previous)} s po předchozím`);
       lastCallerAt = Date.now();
+      if (!warming && hangUp.cancel()) hangUpCalledOff = true;
       // An answer they spoke over: the session learns what of it was heard,
       // so it repeats what matters instead of taking it as said (Karel, 10. 10. 2026).
       let text = said;
       if (unheard !== null && !warming) {
         text = (unheard === '' ? '(Your last answer was cut off before a word of it was heard: the caller heard nothing of it.)' : `(Your last answer was cut off: the caller heard only "${unheard}".)`) + '\n' + said;
         unheard = null;
+      }
+      if (hangUpCalledOff) {
+        timing('zavěšení zrušeno, volající mluví dál');
+        text = '(The caller went on speaking before your goodbye was over, so the call did not end and goes on. Listen and answer; say goodbye and hang up only once they have finished.)\n' + text;
+        hangUpCalledOff = false;
       }
       askedAt ??= Date.now();
       // The other side went on talking before the answer started (speech
@@ -701,6 +750,7 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
       if (!warming) {
         lastCutAt = Date.now();
         unheard = (heard ?? '').trim();
+        if (hangUp.cancel()) hangUpCalledOff = true;
       }
       if (heard !== undefined && !warming) {
         if (turnText.trim() !== '') {
@@ -720,6 +770,7 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
     },
     close(): void {
       stopTimer();
+      hangUp.cancel();
       // What was being said when the call ended still belongs in the transcript.
       if (!warming && interruptedAt !== null) transcript.push({ who: 'assistant', text: cut(interruptedAt) });
       else if (!warming && turnText.trim() !== '') transcript.push({ who: 'assistant', text: turnText.trim() });

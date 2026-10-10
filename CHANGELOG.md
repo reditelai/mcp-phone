@@ -5,6 +5,17 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.8] - 2026-10-10
+
+Hovor se nezavěsí, když volající mluví dál, než rozloučení dozní.
+
+- Zavěšení platí, až rozloučení dozní. Když volající mezitím promluví nebo rozloučení přeruší, server zavěšení zruší a hovor pokračuje; relace se dozví, že rozloučení nedoznělo. Kontrola v `hang_up` probíhá dřív, než Twilio řekne první slovo odpovědi, takže tohle sama nezachytila: 10. 10. 2026 sekretářka zavěsila na volajícího, který ještě diktoval vzkaz (Věrka, test s Opusem). Platí pro všechny hovory a modely.
+- S `conversation.timings` je v přepisu i rozestup řádků volajícího, aby šlo ověřit, jestli rozpoznávání dělí promluvu na kousky (Věrka).
+
+### Při aktualizaci
+
+- Nastavení se nemění. Když běží příchozí hovory, po výměně souboru `systemctl --user restart mcp-phone-prichozi`.
+
 ## [0.3.7] - 2026-10-10
 
 Sekretářka odpovídá o 0,8 s dřív a u rozhovoru jde nastavit effort modelu.

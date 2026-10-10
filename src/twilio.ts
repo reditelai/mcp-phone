@@ -150,6 +150,7 @@ export interface NumberSetup {
   sid: string;
   voice_url: string;
   voice_fallback_url: string;
+  status_callback: string;
 }
 
 export async function findNumber(keys: Keys, settings: Settings): Promise<NumberSetup> {
@@ -161,12 +162,51 @@ export async function findNumber(keys: Keys, settings: Settings): Promise<Number
     sid: String(found['sid'] ?? ''),
     voice_url: String(found['voice_url'] ?? ''),
     voice_fallback_url: String(found['voice_fallback_url'] ?? ''),
+    status_callback: String(found['status_callback'] ?? ''),
   };
 }
 
-/** Points incoming calls on the owner's number to the service. */
-export async function setVoiceUrl(keys: Keys, numberSid: string, url: string): Promise<void> {
-  await request(keys, 'POST', `/IncomingPhoneNumbers/${numberSid}.json`, { VoiceUrl: url, VoiceMethod: 'POST' });
+/**
+ * Points incoming calls on the owner's number to the service, and the end of
+ * every call to its status address, so a call closes even when its TwiML failed.
+ */
+export async function setVoiceUrl(keys: Keys, numberSid: string, url: string, statusUrl: string): Promise<void> {
+  await request(keys, 'POST', `/IncomingPhoneNumbers/${numberSid}.json`, {
+    VoiceUrl: url,
+    VoiceMethod: 'POST',
+    StatusCallback: statusUrl,
+    StatusCallbackMethod: 'POST',
+  });
+}
+
+/** What the account has left, as Twilio states it. */
+export async function accountBalance(keys: Keys): Promise<{ balance: number; currency: string }> {
+  const body = await request(keys, 'GET', '/Balance.json');
+  return { balance: Number(body['balance'] ?? NaN), currency: String(body['currency'] ?? '') };
+}
+
+/** One line of a day's bill: a category of use and what it cost. */
+export interface UsageLine {
+  category: string;
+  description: string;
+  price: number;
+  unit: string;
+}
+
+/** What one day cost, by category (calls, ConversationRelay, the number...), only lines with a price. */
+export async function usageOn(keys: Keys, day: string): Promise<UsageLine[]> {
+  const query = new URLSearchParams({ StartDate: day, EndDate: day, PageSize: '200' });
+  const body = await request(keys, 'GET', `/Usage/Records/Daily.json?${query.toString()}`);
+  const list = Array.isArray(body['usage_records']) ? (body['usage_records'] as Array<Record<string, unknown>>) : [];
+  return list
+    .map((r) => ({
+      category: String(r['category'] ?? ''),
+      description: String(r['description'] ?? r['category'] ?? ''),
+      price: Number(r['price'] ?? 0) || 0,
+      unit: String(r['price_unit'] ?? ''),
+    }))
+    // totalprice repeats the sum of the rest.
+    .filter((line) => line.price !== 0 && line.category !== 'totalprice');
 }
 
 export interface Recording {

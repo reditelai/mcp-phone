@@ -1,6 +1,6 @@
 {
   "name": "mcp-phone",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "MCP server pro telefonáty: asistent zavolá a přečte vzkaz, volá jen na čísla uložená majitelem",
   "license": "Apache-2.0",
   "author": "Karel Derfl",

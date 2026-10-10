@@ -5,6 +5,22 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.5] - 2026-10-10
+
+Opravy po zkušebních hovorech sekretářky: nevisí, s Googlem se nevypne, vzkazy se nezapomenou hlídat, ceny na požádání.
+
+- Tahák (`hints`) jde do Twilia jen s rozpoznáváním Deepgram. S Googlem v češtině Twilio celý hovor odmítl (chyba 64101) a volající slyšel jen záložní hlášku. `--check` řekne, když se tahák neposílá.
+- Nepovedený hovor už nevisí: služba ho uzavře, když se sekretářka do minuty nespojí, nebo když Twilio ohlásí konec hovoru (`--setup-incoming` nastaví číslu hlášení na `/status`). Selhání jde do deníku hovorů. Dřív visel do restartu služby a další volající by slyšeli obsazeno.
+- `--costs [RRRR-MM-DD]`: útrata u Twilia za den po položkách a zůstatek na účtu. Na dotaz majitele.
+- Návod, Část D: hook při startu konverzace pro hlídač vzkazů (jako pošta a WhatsApp) a kdy hlídač spustit; doplňování taháku podle zkomolených jmen při zpracování vzkazu; záložní hláška s `voice` (bez něj ji Twilio četl anglicky) a zkouška poslechem.
+
+### Při aktualizaci
+
+- Když běží příchozí hovory: po výměně souboru `node .doplnky/mcp-phone/mcp-phone.mjs --setup-incoming --config system/phone.json` (nastaví hlášení konce hovoru), `systemctl --user restart mcp-phone-prichozi` a `--check`.
+- Když hook pro hlídač vzkazů ještě nemáš, přidej ho podle Části D, Provoz.
+- Když záložní hláška (TwiML Bin) nemá `voice`, pošli majiteli opravený Bin podle Části D, krok 4, a ověřte ho poslechem.
+- Řekni majiteli jednou větou, že se může zeptat, kolik hovory stály a kolik mu zbývá.
+
 ## [0.3.4] - 2026-10-10
 
 Sekretářka nevstupuje do pauz mezi větami a nezavěsí, dokud ji volající neslyšel domluvit.

@@ -37,3 +37,12 @@ test('speech recognition: Twilio default unless chosen', async () => {
   assert.equal(relayTranscription(conf({ provider: 'Deepgram', model: 'nova-3' })), ' transcriptionProvider="Deepgram" speechModel="nova-3"');
   assert.equal(relayTranscription(conf({ provider: 'Google' })), ' transcriptionProvider="Google"');
 });
+
+test('the cheat sheet goes to Twilio only with Deepgram', async () => {
+  const { relayHints } = await import('../dist/conversation.js');
+  const conf = (transcription) => ({ settings: { conversation: { transcription } } });
+  assert.equal(relayHints(conf({ provider: 'Deepgram', model: 'nova-3-general' }), ['Karel Derfl', 'Geoplan, Hradec']), ' hints="Karel Derfl,Geoplan  Hradec"');
+  assert.equal(relayHints(conf({ provider: 'Google' }), ['Karel Derfl']), '');
+  assert.equal(relayHints(conf(null), ['Karel Derfl']), '');
+  assert.equal(relayHints(conf({ provider: 'Deepgram' }), undefined), '');
+});

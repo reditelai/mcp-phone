@@ -34,6 +34,7 @@ import {
   escapeXml,
   findExecutable,
   listen,
+  relayHints,
   relayTranscription,
   relayVoice,
   speakingMs,
@@ -173,6 +174,8 @@ export async function serve(config: Config): Promise<void> {
     startedAt: number;
     endedBy: string;
     finished: boolean;
+    /** The relay connected: the secretary is on the line. */
+    connected: boolean;
   }
   let current: Call | null = null;
 
@@ -182,6 +185,18 @@ export async function serve(config: Config): Promise<void> {
     call.session.close();
     if (current === call) current = null;
     const seconds = Math.round((Date.now() - call.startedAt) / 1000);
+    // The secretary never got on the line (Twilio refused the TwiML, or the
+    // caller hung up during the greeting): nothing to hand over, but the
+    // failure belongs in the log instead of a call that hangs (10. 10. 2026).
+    if (!call.connected) {
+      logCall(config, {
+        who: `${call.from || 'neznámé číslo'}${call.forwardedFrom ? ` (přesměrováno z ${call.forwardedFrom})` : ''}`,
+        kind: 'příchozí',
+        info: { sid: call.sid, status: 'failed', duration_seconds: seconds, started: new Date(call.startedAt).toISOString(), ring_seconds: null },
+      });
+      log(`hovor od ${call.from}: sekretářka se nespojila (${call.endedBy}), uzavřeno po ${seconds} s`);
+      return;
+    }
     let file: string | null = null;
     try {
       file = writeTranscript(config, vaultDir, '', call.transcript, call.callee);
@@ -203,6 +218,21 @@ export async function serve(config: Config): Promise<void> {
     if (url === `${prefix}/health`) {
       response.writeHead(200, { 'Content-Type': 'text/plain' });
       response.end('ok');
+      return;
+    }
+    // Twilio's status callback for the number: a call that ended closes here
+    // even when nothing else said so (a refused TwiML never reaches /done).
+    if (url === `${prefix}/status` && request.method === 'POST') {
+      void readBody(request).then((form) => {
+        const status = form.get('CallStatus') ?? '';
+        const call = current;
+        if (call !== null && call.sid === form.get('CallSid') && ['completed', 'busy', 'failed', 'no-answer', 'canceled'].includes(status)) {
+          if (!call.connected) call.endedBy = `Twilio: ${status}`;
+          finish(call);
+        }
+        response.writeHead(204);
+        response.end();
+      });
       return;
     }
     if (url === `${prefix}/done` && request.method === 'POST') {
@@ -254,6 +284,7 @@ export async function serve(config: Config): Promise<void> {
         startedAt: Date.now(),
         endedBy: 'caller',
         finished: false,
+        connected: false,
       };
       current = call;
       log(`hovor od ${from}${forwardedFrom ? ` (přesměrováno z ${forwardedFrom})` : ''}`);
@@ -263,13 +294,18 @@ export async function serve(config: Config): Promise<void> {
         twiml(
           `<Connect action="${escapeXml(`${base}/done`)}"><ConversationRelay url="${escapeXml(relay)}" language="${escapeXml(settings.language)}" ` +
             `ttsProvider="ElevenLabs" voice="${escapeXml(voice)}" welcomeGreeting="${escapeXml(incoming.greeting)}"${relayTranscription(config)} speechTimeout="${incoming.speech_timeout_ms}"` +
-            (incoming.hints !== undefined && incoming.hints.length > 0 ? ` hints="${escapeXml(incoming.hints.map((hint) => hint.replace(/,/g, ' ').trim()).filter(Boolean).join(','))}"` : '') +
+            relayHints(config, incoming.hints) +
             ` /></Connect>`,
         ),
       );
-      // A call that never connects to the relay (caller hung up during the greeting) is closed after a minute.
+      // A call whose relay never connects is closed after a minute, with the
+      // session. Not by an empty transcript: the warm-up writes a timing line
+      // into it, and the call hung until a restart (10. 10. 2026).
       setTimeout(() => {
-        if (!call.finished && call.transcript.length === 0 && current === call) finish(call);
+        if (!call.finished && !call.connected && current === call) {
+          call.endedBy = 'nepřipojeno do minuty';
+          finish(call);
+        }
       }, 60_000).unref();
     });
   });
@@ -300,6 +336,7 @@ export async function serve(config: Config): Promise<void> {
           return;
         }
         mine = true;
+        call.connected = true;
         call.session.attach(ws);
         // The secretary is short (Karel: "klidně přísnější, 2-3 min").
         limit = setTimeout(() => {

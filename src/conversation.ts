@@ -68,6 +68,17 @@ export function relayVoice(config: Config): string {
   return tuning === null ? id : `${id}-${tuning}`;
 }
 
+/**
+ * The hints attribute (names the speech recognition should expect), only with
+ * Deepgram: Google refuses hints for cs-CZ (Twilio error 64101) and then the
+ * whole call fails over to the fallback TwiML (10. 10. 2026).
+ */
+export function relayHints(config: Config, hints: readonly string[] | undefined): string {
+  if (config.settings.conversation.transcription?.provider !== 'Deepgram' || hints === undefined) return '';
+  const list = hints.map((hint) => hint.replace(/,/g, ' ').trim()).filter(Boolean);
+  return list.length > 0 ? ` hints="${escapeXml(list.join(','))}"` : '';
+}
+
 /** ConversationRelay attributes for the chosen speech recognition, or nothing for Twilio's default. */
 export function relayTranscription(config: Config): string {
   const chosen = config.settings.conversation.transcription;
@@ -307,7 +318,7 @@ export async function converse(config: Config, callee: Callee, opening: string, 
       `ttsProvider="ElevenLabs" voice="${escapeXml(voice)}" welcomeGreeting="${escapeXml(opening)}"${relayTranscription(config)}` +
       // Names the speech recognition should expect (people, places from the
       // task): without them "Beznoska" came through as "bez mozku" (8. 10. 2026).
-      (hints.length > 0 ? ` hints="${escapeXml(hints.map((hint) => hint.replace(/,/g, ' ').trim()).filter(Boolean).join(','))}"` : '') +
+      relayHints(config, hints) +
       ` /></Connect></Response>`;
     session = startSession(config, vaultDir, claude, callee, opening, context, transcript, () => {
       endedBy = 'assistant';

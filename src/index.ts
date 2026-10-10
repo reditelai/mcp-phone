@@ -23,7 +23,7 @@ import { registerConverseTool, registerConverseWithTool } from './tools/converse
 import { registerReloadTool } from './tools/reload.js';
 import { registerStatusTool } from './tools/status.js';
 import { incomingBase, incomingProblems, serve, waitForMessages, WAIT_EXIT } from './incoming.js';
-import { countCallsSince, findNumber, setVoiceUrl } from './twilio.js';
+import { accountBalance, countCallsSince, findNumber, setVoiceUrl, usageOn } from './twilio.js';
 
 const NAME = 'mcp-phone';
 const VERSION = bundledVersion() ?? readVersion();
@@ -97,6 +97,33 @@ async function check(argv: string[]): Promise<number> {
 }
 
 /**
+ * `--costs [RRRR-MM-DD]`: what a day cost at Twilio, by category, and what the
+ * account has left. The owner asks for it (Karel, 10. 10. 2026); the keys stay
+ * in this program, nothing secret is printed.
+ */
+async function costs(argv: string[]): Promise<number> {
+  try {
+    const config = await loadConfig(resolveConfigPath(argv));
+    const at = argv.indexOf('--costs');
+    const given = argv[at + 1];
+    const day = given !== undefined && /^\d{4}-\d{2}-\d{2}$/.test(given) ? given : new Date().toLocaleDateString('sv-SE', { timeZone: config.settings.timezone });
+    const [lines, balance] = await Promise.all([usageOn(config.keys, day), accountBalance(config.keys)]);
+    const unit = lines[0]?.unit.toUpperCase() ?? balance.currency;
+    const total = lines.reduce((sum, line) => sum + line.price, 0);
+    const parts = lines.sort((a, b) => b.price - a.price).map((line) => `${line.description} ${line.price.toFixed(4)}`);
+    process.stdout.write(
+      `ok: ${day} za Twilio ${total.toFixed(4)} ${unit}${parts.length > 0 ? ` (${parts.join('; ')})` : ', nic'}. ` +
+        `Zůstatek ${Number.isFinite(balance.balance) ? balance.balance.toFixed(2) : '?'} ${balance.currency}. ` +
+        `Dnešní a včerejší částky Twilio doplňuje se zpožděním.\n`,
+    );
+    return 0;
+  } catch (error) {
+    process.stdout.write(`chyba: ${error instanceof Error ? error.message : String(error)}\n`);
+    return 6;
+  }
+}
+
+/**
  * Incoming calls: every condition, with what is wrong said plainly. They touch
  * the owner's phone (forwarding), so a half-done setup must not stay silent.
  */
@@ -115,6 +142,7 @@ async function checkIncoming(config: Config): Promise<number> {
     const number = await findNumber(keys, settings);
     if (number.voice_url !== `${base}/voice`) problems.push('číslo v Twiliu neposílá příchozí hovory na službu (spusť --setup-incoming)');
     if (number.voice_fallback_url === '') problems.push('číslo v Twiliu nemá záložní odpověď (A call comes in → Primary handler fails), při výpadku by volající slyšel chybu');
+    if (number.status_callback !== `${base}/status`) problems.push('číslo v Twiliu neohlašuje službě konec hovoru, nepovedený hovor by visel (spusť --setup-incoming)');
   }
   if (problems.length > 0) {
     process.stdout.write(`chyba: příchozí hovory nejsou připravené: ${problems.join('; ')}\n`);
@@ -122,7 +150,14 @@ async function checkIncoming(config: Config): Promise<number> {
   }
   const lines = settings.incoming.owner_lines;
   const filter = lines === undefined ? 'bere každý hovor' : `bere jen hovory přesměrované z čísel majitele nebo přímo z nich (${lines.length}), ostatní odmítne`;
-  process.stdout.write(`ok: příchozí hovory připravené, ${settings.incoming.enabled ? 'zapnuté' : 'vypnuté (záznamník)'}, ${filter}, strop ${settings.incoming.max_minutes} min\n`);
+  const hints = settings.incoming.hints?.length ?? 0;
+  const cheat =
+    hints === 0
+      ? 'bez taháku'
+      : settings.conversation.transcription?.provider === 'Deepgram'
+        ? `tahák ${hints} slov`
+        : `tahák ${hints} slov se NEPOSÍLÁ: funguje jen s rozpoznáváním Deepgram`;
+  process.stdout.write(`ok: příchozí hovory připravené, ${settings.incoming.enabled ? 'zapnuté' : 'vypnuté (záznamník)'}, ${filter}, ${cheat}, strop ${settings.incoming.max_minutes} min. Záložní hlášku v Twiliu (TwiML Bin) ověř poslechem, odsud ji neslyším.\n`);
   return 0;
 }
 
@@ -145,7 +180,7 @@ async function setupIncoming(argv: string[]): Promise<number> {
       return 6;
     }
     const number = await findNumber(config.keys, config.settings);
-    await setVoiceUrl(config.keys, number.sid, `${incomingBase(config)}/voice`);
+    await setVoiceUrl(config.keys, number.sid, `${incomingBase(config)}/voice`, `${incomingBase(config)}/status`);
     process.stdout.write(`ok: příchozí hovory na ${config.settings.from} teď jdou na službu${number.voice_fallback_url === '' ? '; chybí záložní odpověď v Twiliu' : ''}\n`);
     return 0;
   } catch (error) {
@@ -175,13 +210,17 @@ async function main(): Promise<void> {
   const outside = outsideMiladka();
   if (outside !== null) {
     // --check prints for the assistant on stdout, the server for a person on stderr.
-    if (argv.includes('--check')) process.stdout.write(`chyba: ${miladkaRequired()}\n`);
+    if (argv.includes('--check') || argv.includes('--costs')) process.stdout.write(`chyba: ${miladkaRequired()}\n`);
     else process.stderr.write(`${miladkaRequired()}\n`);
     process.exitCode = argv.includes('--check') ? 6 : 1;
     return;
   }
   if (argv.includes('--check')) {
     process.exitCode = await check(argv);
+    return;
+  }
+  if (argv.includes('--costs')) {
+    process.exitCode = await costs(argv);
     return;
   }
   if (argv.includes('--setup-incoming')) {

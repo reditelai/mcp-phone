@@ -374,14 +374,6 @@ const FILLERS: Record<string, { first: string; still: string; again: string }> =
   en: { first: 'One moment, let me look.', still: 'Still looking.', again: 'Just a moment more.' },
 };
 /**
- * How long the secretary waits after the caller stops before answering. Speech
- * recognition sends a message said in pieces as separate prompts, and a pause
- * is not the end (Karel, 10. 10. 2026: a message in two parts and a "Jo?" got a
- * hang-up without a word). Pieces within this window are answered as one.
- */
-const INCOMING_PAUSE_MS = 800;
-
-/**
  * Why hang_up must wait, or null when it may end the call. Enforced here, not
  * only asked for in the prompt: a call must not end in silence (Karel,
  * 10. 10. 2026) nor right after a question (9. 10. 2026).
@@ -480,8 +472,6 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
   let lastCallerAt = 0; // when the other side last said something
   let lastCutAt = 0; // when the other side last spoke over an answer
   let unheard: string | null = null; // what the other side heard of an answer they spoke over, until the next turn learns it
-  let held: string[] = []; // the secretary's caller, pieces said since the last pause
-  let holdTimer: ReturnType<typeof setTimeout> | null = null;
   const cut = (heard: string): string => (heard.trim() === '' ? '_(přerušeno, nic nezaznělo)_' : `${heard.trim()} … _(přerušeno)_`);
   const startedAt = Date.now();
   let askedAt: number | null = null; // when the owner's last question arrived, until the first word of the answer
@@ -555,7 +545,7 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
       tool('hang_up', 'End the phone call after your last sentence has been spoken. Only after saying goodbye.', {}, async () => {
         // Not without a word, not right after a question (hangUpRefusal).
         const refusal = hangUpRefusal(turnAll, {
-          callerSpoke: lastCallerAt > turnStartedAt || held.length > 0,
+          callerSpoke: lastCallerAt > turnStartedAt,
           cutOff: lastCutAt > turnStartedAt,
         });
         if (refusal !== null) return { content: [{ type: 'text', text: refusal }], isError: true };
@@ -578,6 +568,7 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
     prompt: input(),
     options: {
       model: conv.model,
+      ...(conv.effort !== undefined ? { effort: conv.effort } : {}),
       cwd,
       pathToClaudeCodeExecutable: claude,
       env,
@@ -694,20 +685,10 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
       // The other side went on talking before the answer started (speech
       // recognition split one utterance in two): drop the half-finished turn,
       // so that both parts get one answer, not two in a row (Karel, 9. 10. 2026).
+      // The secretary does not wait on top of this: Twilio sends a piece only
+      // after incoming.speech_timeout_ms of silence, so the next one can never
+      // come sooner, and an extra wait only made every answer later (Karel, 10. 10. 2026).
       if (busy && !saidInTurn && !warming) void session.interrupt().catch(() => {});
-      // The secretary waits out a pause before answering: the pieces of one
-      // message go to her together (INCOMING_PAUSE_MS).
-      if (callee.incoming === true && !warming) {
-        held.push(text);
-        if (holdTimer !== null) clearTimeout(holdTimer);
-        holdTimer = setTimeout(() => {
-          holdTimer = null;
-          const all = held.join(' ');
-          held = [];
-          push(all);
-        }, INCOMING_PAUSE_MS);
-        return;
-      }
       push(text);
     },
     /**
@@ -739,7 +720,6 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
     },
     close(): void {
       stopTimer();
-      if (holdTimer !== null) clearTimeout(holdTimer);
       // What was being said when the call ended still belongs in the transcript.
       if (!warming && interruptedAt !== null) transcript.push({ who: 'assistant', text: cut(interruptedAt) });
       else if (!warming && turnText.trim() !== '') transcript.push({ who: 'assistant', text: turnText.trim() });

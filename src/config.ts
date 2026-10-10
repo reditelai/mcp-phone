@@ -51,6 +51,10 @@ const conversationSchema = z
     // is hundreds of megabytes per system, so the server uses the installed one.
     claude_path: z.string().min(1).default('claude'),
     model: z.string().min(1).default('sonnet'),
+    // Reasoning effort of the call session. Not set = Claude Code's default for
+    // the model; low makes a slower model answer sooner (comparing Sonnet and
+    // Opus on the phone, Karel 10. 10. 2026).
+    effort: z.enum(['low', 'medium', 'high', 'xhigh', 'max']).optional(),
     // ElevenLabs voice settings for conversations, speed_stability_similarity.
     // Higher stability keeps the voice steadier between sentences: with the
     // ElevenLabs defaults Karel heard the loudness change (9. 10. 2026), with

@@ -5,6 +5,17 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.7] - 2026-10-10
+
+Sekretářka odpovídá o 0,8 s dřív a u rozhovoru jde nastavit effort modelu.
+
+- Nové nastavení `conversation.effort` (`low` až `max`): jak moc hovorová relace přemýšlí před odpovědí. Bez něj platí výchozí hodnota Claude Code pro model, tedy jako dosud. Kvůli porovnání Sonnetu a Opusu v telefonu.
+- Sekretářka odpovídá o 0,8 s dřív: server už po textu od Twilia nečeká na další kousek. Twilio pošle kousek až po tichu `incoming.speech_timeout_ms`, takže další nemohl přijít dřív a čekání jen zdržovalo. Kousek, který přijde, než sekretářka začne mluvit, dál dostane s předchozím jednu odpověď (Karel, 10. 10. 2026).
+
+### Při aktualizaci
+
+- Nastavení se nemění. Když běží příchozí hovory, po výměně souboru `systemctl --user restart mcp-phone-prichozi`.
+
 ## [0.3.6] - 2026-10-10
 
 Kratší čekání na konec věty a stálejší hlas jako výchozí.

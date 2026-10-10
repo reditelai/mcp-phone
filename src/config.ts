@@ -56,14 +56,15 @@ const conversationSchema = z
     // ElevenLabs defaults Karel heard the loudness change (9. 10. 2026), with
     // 0.8 he did not. null = ElevenLabs defaults.
     voice_tuning: z.string().regex(/^\d(\.\d+)?_\d(\.\d+)?_\d(\.\d+)?$/, 'tvar rychlost_stabilita_podobnost, třeba 1.0_0.8_0.8').nullable().default('1.0_0.8_0.8'),
-    // Speech recognition in conversations and for the secretary. Unset = what
-    // Twilio picks for the language (for cs-CZ Google). Deepgram nova-3 and
-    // nova-2 know Czech too; flux does not. For comparing transcripts (Karel,
-    // 10. 10. 2026: lots of garbled words with the default).
+    // Speech recognition in conversations and for the secretary. Deepgram
+    // nova-3 heard numbers and places better than Twilio's default for cs-CZ
+    // (Google) in the test calls of 10. 10. 2026; flux does not know Czech.
+    // null = what Twilio picks for the language.
     transcription: z
       .object({ provider: z.enum(['Google', 'Deepgram']), model: z.string().min(1).optional() })
       .strict()
-      .optional(),
+      .nullable()
+      .default({ provider: 'Deepgram', model: 'nova-3-general' }),
     greeting: z.string().min(1).default('Ahoj, tady Miládka. Poslouchám.'),
     max_minutes: z.number().int().min(1).max(60).default(10),
     // Folder the call session may read (the vault). Defaults to Miládka's folder.
@@ -101,6 +102,7 @@ const DEFAULT_INCOMING_TASK = [
   'Do not ask for a company, a town or a number: the owner will call back the number they are calling from, unless they say they want another.',
   'If you did not understand what they said (it makes no sense), say only "Nerozuměla jsem, můžete to zopakovat?". If they say they already told you, you missed it: ask them to say it again, do not end.',
   'A pause is not the end: people often say a message in pieces. If the last thing you heard sounds cut off, or is only "Jo?" or "Haló?", or you are not sure they have finished, ask "Je to všechno?" and wait for the answer.',
+  'Do not guess from a name or a voice whether the caller is a man or a woman: no "pane" or "paní", say just "Děkuji".',
   'If you have no message yet, ask once what you should pass on. Only when you have it, end with one short sentence that repeats its core - who called and what it is about, not word for word - e.g. "Vyřídím Karlovi, že se vám má ozvat kvůli smlouvě. Na shledanou.", and hang up. Never hang up without saying anything, never end with a bare "Vyřídím".',
   'Do not sum up what they said during the call, do not repeat it back sentence by sentence.',
   'Do not say where the owner is or what he is doing, do not promise when he will call back, do not arrange anything.',
@@ -124,6 +126,16 @@ const incomingSchema = z
     // cost) and only reported. Unset = every call (Karel, 9. 10. 2026).
     owner_lines: z.array(phoneNumber).min(1).optional(),
     max_minutes: z.number().int().min(1).max(10).default(3),
+    // Silence after which Twilio takes what the caller said as finished. People
+    // leaving a message pause over two seconds between sentences; with the
+    // default the secretary kept starting to answer and being cut off
+    // (10. 10. 2026).
+    speech_timeout_ms: z.number().int().min(600).max(5000).default(2500),
+    // The secretary's cheat sheet: names, companies, places and words that come
+    // up in the owner's calls, for the speech recognition only (Twilio hints).
+    // The secretary herself does not get it: she knows nothing about the
+    // owner's contacts and cannot give them away (Karel, 10. 10. 2026).
+    hints: z.array(z.string().min(1).max(60)).max(60).optional(),
     // What the caller hears first. It has to say that an AI assistant answers.
     greeting: z
       .string()

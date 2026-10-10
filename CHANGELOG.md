@@ -5,6 +5,21 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.4] - 2026-10-10
+
+Sekretářka nevstupuje do pauz mezi větami a nezavěsí, dokud ji volající neslyšel domluvit.
+
+- Přerušená odpověď se nepočítá jako řečená: server `hang_up` odmítne, když od začátku odpovědi volající promluvil nebo ji přerušil, a do další zprávy sekretářce připíše, co z odpovědi volající slyšel (nebo že nic). 10. 10. 2026 zavěsila beze slova a jednou i uprostřed čísla na zpětné zavolání.
+- `incoming.speech_timeout_ms` (výchozí 2,5 s): Twilio vezme promluvu za hotovou až po tomto tichu. Spojování kousků na serveru zkrácené na 0,8 s.
+- `incoming.hints`: tahák pro rozpoznávání řeči (jména, firmy, místa). Dostane ho jen Twilio, sekretářka ne.
+- Výchozí rozpoznávání řeči Deepgram `nova-3-general` (`conversation.transcription`, `null` = výběr Twilia). Ve zkušebních hovorech dal líp čísla a místa než Google.
+- Sekretářka ani hovor s někým jiným nehádá z jména rod: žádné „pane“, „paní“.
+
+### Při aktualizaci
+
+- Rozpoznávání řeči se mění na Deepgram, i když `conversation.transcription` v nastavení není. Kdo chce zůstat u dosavadního, nastaví `null`. Řekni to majiteli jednou větou.
+- Když běží příchozí hovory: sestav s majitelem tahák `incoming.hints` (návod, Část D, Nastavení, bod 1) a zapiš ho až po jeho souhlasu. Pak `systemctl --user restart mcp-phone-prichozi` a `--check`.
+
 ## [0.3.3] - 2026-10-10
 
 Rozpoznávání řeči jde vybrat: Google, nebo Deepgram.

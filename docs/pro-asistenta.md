@@ -357,7 +357,7 @@ Do `system/phone.json` přidej oddíl `conversation`:
 | `transcript_dir` | kam se ukládá přepis každého hovoru, soubor `RRRR-MM-DD-HHMM-kdo.md` (u rozhovoru s majitelem `majitel`); v `system/`, aby se zálohoval | `system/hovory` |
 | `others_introduction` | první věta hovoru s kýmkoli jiným než majitelem: kdo volá a že je to AI asistentka, třeba „Dobrý den, tady Miládka, AI asistentka Karla Derfla.“ Musí obsahovat slovo „AI“. Bez ní `tel_converse_with` nefunguje. Znění navrhni a nech majitele schválit. | žádné |
 | `voice_tuning` | nastavení hlasu ElevenLabs v rozhovoru, `rychlost_stabilita_podobnost` (rychlost 0,7 až 1,2, ostatní 0 až 1), třeba `"1.0_0.8_0.8"`. Vyšší stabilita drží hlas stejnější mezi větami, když majitel slyší kolísání hlasitosti nebo tónu. Posuzuje se poslechem v telefonu. `null` = výchozí nastavení ElevenLabs. | `"1.0_0.8_0.8"` |
-| `transcription` | rozpoznávání řeči v rozhovoru i u sekretářky, `{"provider": "Deepgram", "model": "nova-3-general"}` nebo `{"provider": "Google"}`. Česky umí Google a Deepgram `nova-3-general` a `nova-2-general`, Deepgram `flux` ne. Měň jen na majitelovo přání, posuzuje se podle přepisů hovorů. Po změně u příchozích hovorů `systemctl --user restart mcp-phone-prichozi`. | chybí (Twilio vybere, pro češtinu Google) |
+| `transcription` | rozpoznávání řeči v rozhovoru i u sekretářky, `{"provider": "Deepgram", "model": "nova-3-general"}` nebo `{"provider": "Google"}`, `null` = co vybere Twilio (pro češtinu Google). Česky umí Google a Deepgram `nova-3-general` a `nova-2-general`, Deepgram `flux` ne. Ve zkušebních hovorech 10. 10. 2026 dal Deepgram líp čísla a místa. Po změně u příchozích hovorů `systemctl --user restart mcp-phone-prichozi`. | Deepgram `nova-3-general` |
 | `timings` | časy v přepisu: první slovo po otázce, běh nástrojů, start relace; na ladění rychlosti | `false` |
 | `vault_read` | relace smí číst poznámky | `true` |
 | `mcp_servers`, `allowed_tools` | další servery pro relaci a nástroje z nich, které smí použít. Pro poštu z Multigmailu stačí `mg_list_accounts`, `mg_search_threads` a `mg_get_message` (s předponou `mcp__multi-gmail__`); celé vlákno, hledání ve všech schránkách a cokoli, co ve schránce něco mění (i koncept), server za hovoru stejně odmítne. **Nikdy WhatsApp** - drží jedno spojení a druhá relace by ho shodila. Jen servery spouštěné z počítače (`command`/`args`). Konektory z claude.ai do hovoru dát nejde, třeba Google Calendar nebo Gmail. Kdo má poštu napojenou jen přes Claude, bez doplňku Multigmail, nemá ji v hovoru vůbec. Hovor pak umí jen poznámky. | žádné |
@@ -444,6 +444,13 @@ Sekretářka: když majitel nezvedá, operátor hovor přesměruje na číslo u 
    }
    ```
    Znění `greeting` navrhni a nech majitele schválit. Musí obsahovat „AI“.
+
+   **Tahák pro sekretářku** (`incoming.hints`): krátký seznam slov, která rozpoznávání řeči v jeho hovorech uslyší nejčastěji. Sestav ho z vaultu: majitelovo jméno a příjmení, jeho firma, lidé a firmy, které mu volají nebo píšou nejčastěji, místa a názvy, které se u něj opakují. Nejvýš 60 položek, každá krátká, jen slova (žádná čísla, adresy ani poznámky). Ukaž ho majiteli a zapiš až po souhlasu. Dostane ho jen rozpoznávání řeči u Twilia, sekretářka sama ne: nic o majitelových kontaktech neví a nemůže je prozradit. Doplň ho, když majitel řekne, nebo když v přepisu vidíš jméno zkomolené.
+   ```json
+   "hints": ["Karel Derfl", "Mapotip", "Geoplan", "Přerov"]
+   ```
+
+   **Čekání na konec věty** (`incoming.speech_timeout_ms`, výchozí `2500`): kolik milisekund ticha Twilio počká, než vezme, co volající řekl, za hotové (600 až 5000). Lidé nechávající vzkaz dělají mezi větami pauzy přes dvě vteřiny. Když sekretářka pořád skáče do řeči, zvyš; když odpovídá pomalu, sniž.
 2. **Tajná adresa a číslo**: `node .doplnky/mcp-phone/mcp-phone.mjs --setup-incoming --config system/phone.json`. Vygeneruje tajnou část adresy, na kterou Twilio posílá hovory, a zapíše ji do souboru s klíči (`incoming_secret`), ne do nastavení: nastavení se zálohuje do gitu a tajná adresa je jediná ochrana služby. **Nikdy ji nečti ani nevypisuj**, stejně jako klíče. Pak nasměruje číslo v Twiliu na službu. Opakované spuštění tajnou adresu nemění.
 3. **Služba.** Ulož `~/.config/systemd/user/mcp-phone-prichozi.service` (cesty skutečné, absolutní):
    ```

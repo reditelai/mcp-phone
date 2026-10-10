@@ -28,3 +28,11 @@ test('nothing is written during a call, whatever the settings allow', () => {
 test('other tools pass unchanged', () => {
   assert.deepEqual(limitForCall('mcp__phone_call__hang_up', {}), { input: {} });
 });
+
+test('speech recognition: Twilio default unless chosen', async () => {
+  const { relayTranscription } = await import('../dist/conversation.js');
+  const conf = (transcription) => ({ settings: { conversation: { transcription } } });
+  assert.equal(relayTranscription(conf(undefined)), '');
+  assert.equal(relayTranscription(conf({ provider: 'Deepgram', model: 'nova-3' })), ' transcriptionProvider="Deepgram" speechModel="nova-3"');
+  assert.equal(relayTranscription(conf({ provider: 'Google' })), ' transcriptionProvider="Google"');
+});

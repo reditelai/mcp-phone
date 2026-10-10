@@ -34,6 +34,7 @@ import {
   escapeXml,
   findExecutable,
   listen,
+  relayTranscription,
   relayVoice,
   speakingMs,
   startSession,
@@ -261,7 +262,7 @@ export async function serve(config: Config): Promise<void> {
       response.end(
         twiml(
           `<Connect action="${escapeXml(`${base}/done`)}"><ConversationRelay url="${escapeXml(relay)}" language="${escapeXml(settings.language)}" ` +
-            `ttsProvider="ElevenLabs" voice="${escapeXml(voice)}" welcomeGreeting="${escapeXml(incoming.greeting)}" /></Connect>`,
+            `ttsProvider="ElevenLabs" voice="${escapeXml(voice)}" welcomeGreeting="${escapeXml(incoming.greeting)}"${relayTranscription(config)} /></Connect>`,
         ),
       );
       // A call that never connects to the relay (caller hung up during the greeting) is closed after a minute.

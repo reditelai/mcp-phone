@@ -5,6 +5,17 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.3] - 2026-10-10
+
+Rozpoznávání řeči jde vybrat: Google, nebo Deepgram.
+
+- Nové nastavení `conversation.transcription` (`provider` Google nebo Deepgram, volitelně `model`, třeba `nova-3-general`). Platí pro rozhovor i sekretářku. Bez něj vybírá Twilio, pro češtinu Google. Kvůli porovnání přepisů: s Googlem je v nich hodně zkomolených slov.
+
+### Při aktualizaci
+
+- Nastavení se nemění. `transcription` nastav jen na majitelovo přání.
+- Když běží příchozí hovory, po výměně souboru `systemctl --user restart mcp-phone-prichozi`.
+
 ## [0.3.2] - 2026-10-10
 
 Sekretářka přečká pauzu ve vzkazu a nikdy nezavěsí beze slova.

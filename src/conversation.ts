@@ -68,6 +68,13 @@ export function relayVoice(config: Config): string {
   return tuning === null ? id : `${id}-${tuning}`;
 }
 
+/** ConversationRelay attributes for the chosen speech recognition, or nothing for Twilio's default. */
+export function relayTranscription(config: Config): string {
+  const chosen = config.settings.conversation.transcription;
+  if (chosen === undefined) return '';
+  return ` transcriptionProvider="${escapeXml(chosen.provider)}"` + (chosen.model !== undefined ? ` speechModel="${escapeXml(chosen.model)}"` : '');
+}
+
 export function escapeXml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
@@ -296,7 +303,7 @@ export async function converse(config: Config, callee: Callee, opening: string, 
     const relay = `${base.replace(/^https:/, 'wss:')}/relay/${secret}`;
     const twiml =
       `<Response><Connect><ConversationRelay url="${escapeXml(relay)}" language="${escapeXml(settings.language)}" ` +
-      `ttsProvider="ElevenLabs" voice="${escapeXml(voice)}" welcomeGreeting="${escapeXml(opening)}"` +
+      `ttsProvider="ElevenLabs" voice="${escapeXml(voice)}" welcomeGreeting="${escapeXml(opening)}"${relayTranscription(config)}` +
       // Names the speech recognition should expect (people, places from the
       // task): without them "Beznoska" came through as "bez mozku" (8. 10. 2026).
       (hints.length > 0 ? ` hints="${escapeXml(hints.map((hint) => hint.replace(/,/g, ' ').trim()).filter(Boolean).join(','))}"` : '') +

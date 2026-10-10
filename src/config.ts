@@ -56,6 +56,14 @@ const conversationSchema = z
     // ElevenLabs defaults Karel heard the loudness change (9. 10. 2026), with
     // 0.8 he did not. null = ElevenLabs defaults.
     voice_tuning: z.string().regex(/^\d(\.\d+)?_\d(\.\d+)?_\d(\.\d+)?$/, 'tvar rychlost_stabilita_podobnost, třeba 1.0_0.8_0.8').nullable().default('1.0_0.8_0.8'),
+    // Speech recognition in conversations and for the secretary. Unset = what
+    // Twilio picks for the language (for cs-CZ Google). Deepgram nova-3 and
+    // nova-2 know Czech too; flux does not. For comparing transcripts (Karel,
+    // 10. 10. 2026: lots of garbled words with the default).
+    transcription: z
+      .object({ provider: z.enum(['Google', 'Deepgram']), model: z.string().min(1).optional() })
+      .strict()
+      .optional(),
     greeting: z.string().min(1).default('Ahoj, tady Miládka. Poslouchám.'),
     max_minutes: z.number().int().min(1).max(60).default(10),
     // Folder the call session may read (the vault). Defaults to Miládka's folder.

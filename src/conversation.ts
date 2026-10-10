@@ -266,6 +266,14 @@ export class PendingHangUp {
   }
 }
 
+/**
+ * How long the call stays open after the goodbye should have been spoken.
+ * Twilio does not say when playback ends and reports an interruption only once
+ * it has recognized speech: without this, a caller speaking over the last words
+ * of a goodbye was cut off before the interruption arrived (10. 10. 2026).
+ */
+const HANG_UP_GRACE_MS = 2_000;
+
 /** Rough time the synthesizer needs to say a text, so a hang-up does not cut the goodbye. */
 export function speakingMs(text: string): number {
   return Math.max(1500, text.length * 70);
@@ -695,7 +703,7 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
         turnText = '';
         turnAll = '';
         saidInTurn = false;
-        hangUp.schedule(speakingMs(said));
+        hangUp.schedule(speakingMs(said) + HANG_UP_GRACE_MS);
       }
     }
   })()

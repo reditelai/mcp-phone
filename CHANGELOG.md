@@ -5,6 +5,18 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.9] - 2026-10-10
+
+Na volajícího, který mluví do rozloučení, se už nezavěsí, a po odpovědi na jeho otázku se sekretářka nerozloučí.
+
+- Hovor zůstane po odhadnutém konci rozloučení ještě 2 s otevřený. Twilio konec přehrávání nehlásí a přerušení pošle, až řeč rozpozná: v 0.3.8 přišlo přerušení posledních slov rozloučení pozdě a hovor se zavěsil (Věrka, test 10. 10. 2026). Přerušení nebo další věta v té době zavěšení zruší.
+- Výchozí úkol sekretářky: na otázku volajícího krátce odpoví a zeptá se „Je to všechno?“, v téže odpovědi se nerozloučí. 10. 10. 2026 odpověděla na „kdy bude k zastižení“ a rozloučila se dřív, než volající řekl číslo. Když volající jen něco sdělí, otázku navíc neklade (Karel).
+
+### Při aktualizaci
+
+- Když má nastavení vlastní `incoming.task`, nová věta výchozího úkolu se ho netýká: nabídni majiteli doplnit ji (znění ve výchozím úkolu v `src/config.ts`, věta „If the caller asks you something…“) a změň až s jeho souhlasem.
+- Když běží příchozí hovory, po výměně souboru `systemctl --user restart mcp-phone-prichozi`.
+
 ## [0.3.8] - 2026-10-10
 
 Hovor se nezavěsí, když volající mluví dál, než rozloučení dozní.

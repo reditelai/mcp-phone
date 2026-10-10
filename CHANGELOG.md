@@ -5,6 +5,18 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.6] - 2026-10-10
+
+Kratší čekání na konec věty a stálejší hlas jako výchozí.
+
+- Výchozí `incoming.speech_timeout_ms` 2000 místo 2500: s 2,5 s byly mezery v hovoru dlouhé, 2 s sedí (Karel, zkušební hovory 10. 10. 2026).
+- Výchozí `conversation.voice_tuning` `1.0_1.0_0.8` místo `1.0_0.8_0.8`: stabilita 1,0, hlas už nekolísá v hlasitosti. Platí pro rozhovor i sekretářku.
+
+### Při aktualizaci
+
+- Kdo má `speech_timeout_ms` nebo `voice_tuning` v nastavení zapsané výslovně, toho se změna netýká. Když jsou tam staré výchozí hodnoty (2500, `1.0_0.8_0.8`) a majitel si je nevybral sám, nabídni mu je smazat, ať platí nové.
+- Když běží příchozí hovory, po výměně souboru `systemctl --user restart mcp-phone-prichozi`.
+
 ## [0.3.5] - 2026-10-10
 
 Opravy po zkušebních hovorech sekretářky: nevisí, s Googlem se nevypne, vzkazy se nezapomenou hlídat, ceny na požádání.

@@ -54,8 +54,8 @@ const conversationSchema = z
     // ElevenLabs voice settings for conversations, speed_stability_similarity.
     // Higher stability keeps the voice steadier between sentences: with the
     // ElevenLabs defaults Karel heard the loudness change (9. 10. 2026), with
-    // 0.8 he did not. null = ElevenLabs defaults.
-    voice_tuning: z.string().regex(/^\d(\.\d+)?_\d(\.\d+)?_\d(\.\d+)?$/, 'tvar rychlost_stabilita_podobnost, třeba 1.0_0.8_0.8').nullable().default('1.0_0.8_0.8'),
+    // 0.8 less, with 1.0 not at all (10. 10. 2026). null = ElevenLabs defaults.
+    voice_tuning: z.string().regex(/^\d(\.\d+)?_\d(\.\d+)?_\d(\.\d+)?$/, 'tvar rychlost_stabilita_podobnost, třeba 1.0_1.0_0.8').nullable().default('1.0_1.0_0.8'),
     // Speech recognition in conversations and for the secretary. Deepgram
     // nova-3 heard numbers and places better than Twilio's default for cs-CZ
     // (Google) in the test calls of 10. 10. 2026; flux does not know Czech.
@@ -128,9 +128,9 @@ const incomingSchema = z
     max_minutes: z.number().int().min(1).max(10).default(3),
     // Silence after which Twilio takes what the caller said as finished. People
     // leaving a message pause over two seconds between sentences; with the
-    // default the secretary kept starting to answer and being cut off
-    // (10. 10. 2026).
-    speech_timeout_ms: z.number().int().min(600).max(5000).default(2500),
+    // default the secretary kept starting to answer and being cut off; 2.5 s
+    // made the gaps feel long, 2 s was right (Karel, 10. 10. 2026).
+    speech_timeout_ms: z.number().int().min(600).max(5000).default(2000),
     // The secretary's cheat sheet: names, companies, places and words that come
     // up in the owner's calls, for the speech recognition only (Twilio hints).
     // The secretary herself does not get it: she knows nothing about the

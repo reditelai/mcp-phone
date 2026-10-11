@@ -5,6 +5,16 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.10] - 2026-10-12
+
+Úprava návodu pro asistenta: lidštější slova a návod číst celý.
+
+- Návod: na začátku poznámka, že uživateli „složka Miládky", ne „vault", a že se návod čte celý ze staženého souboru, ne nástrojem na čtení webu (Karlův test 11. 10. 2026).
+
+### Při aktualizaci
+
+- Nastavení se nemění.
+
 ## [0.3.9] - 2026-10-10
 
 Na volajícího, který mluví do rozloučení, se už nezavěsí, a po odpovědi na jeho otázku se sekretářka nerozloučí.

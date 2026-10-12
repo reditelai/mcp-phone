@@ -243,7 +243,8 @@ async function main(): Promise<void> {
   }
   if (argv.includes('--serve')) {
     try {
-      await serve(await loadConfig(resolveConfigPath(argv)));
+      const configPath = resolveConfigPath(argv);
+      await serve(await loadConfig(configPath), configPath);
     } catch (error) {
       process.stderr.write(`${NAME}: ${error instanceof Error ? error.message : String(error)}\n`);
       process.exitCode = 1;

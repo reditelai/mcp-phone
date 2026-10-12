@@ -415,6 +415,17 @@ export function writeTranscript(config: Config, vaultDir: string, context: strin
   return relative(vaultDir, file);
 }
 
+/**
+ * Model and effort by the kind of call: the secretary (incoming), a call to
+ * someone else (conversation.others) and a call with the owner
+ * (conversation), each falling back to the owner's (Karel, 12. 10. 2026).
+ */
+export function callModel(config: Config, callee: Callee): { model: string; effort: Config['settings']['conversation']['effort'] } {
+  const conv = config.settings.conversation;
+  const own = callee.incoming ? config.settings.incoming : callee.owner ? undefined : conv.others;
+  return { model: own?.model ?? conv.model, effort: own?.effort ?? conv.effort };
+}
+
 /** What the bridge says on its own while a tool runs, by language of the call. */
 const FILLERS: Record<string, { first: string; still: string; again: string }> = {
   cs: { first: 'Moment, podívám se.', still: 'Pořád hledám.', again: 'Ještě chvilku.' },
@@ -429,10 +440,10 @@ export function hangUpRefusal(said: string, line: { callerSpoke?: boolean; cutOf
   // An answer the other side spoke over was not heard, whatever was written
   // (10. 10. 2026: a hang-up "after" an answer nobody heard, caller still talking).
   if (line.cutOff === true || line.callerSpoke === true) {
-    return 'The other side is still speaking or did not hear your answer. Do not hang up: listen, then repeat the core of the message briefly and say goodbye.';
+    return 'The other side is still speaking or did not hear your answer. Do not hang up: listen, then close briefly and say goodbye.';
   }
   const text = said.trim();
-  if (text === '') return 'You have not said anything yet. First say one short sentence: repeat the core of the message (who and what it is about) and say goodbye. Then call hang_up.';
+  if (text === '') return 'You have not said anything yet. First say goodbye in one short sentence. Then call hang_up.';
   if (text.endsWith('?')) return 'You just asked a question. Do not hang up: wait for the answer.';
   return null;
 }
@@ -618,11 +629,12 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
   if (config.keys.anthropic_api_key !== undefined) env['ANTHROPIC_API_KEY'] = config.keys.anthropic_api_key;
   else delete env['ANTHROPIC_API_KEY'];
 
+  const { model, effort } = callModel(config, callee);
   const session = query({
     prompt: input(),
     options: {
-      model: conv.model,
-      ...(conv.effort !== undefined ? { effort: conv.effort } : {}),
+      model,
+      ...(effort !== undefined ? { effort } : {}),
       cwd,
       pathToClaudeCodeExecutable: claude,
       env,

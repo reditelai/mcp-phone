@@ -25,6 +25,7 @@ import { vaultPasswordsPath, vaultRoot } from './location.js';
 const E164 = /^\+[1-9]\d{7,14}$/;
 const phoneNumber = z.string().regex(E164, 'číslo musí být v mezinárodním tvaru bez mezer, například +420777123456');
 const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'čas ve tvaru HH:MM, například 22:00');
+const EFFORT = z.enum(['low', 'medium', 'high', 'xhigh', 'max']);
 
 /** The name the owner goes by in tel_call. A recipient may not take it. */
 export const OWNER = 'owner';
@@ -50,11 +51,16 @@ const conversationSchema = z
     // The Claude Code executable the call session runs on. The SDK's own copy
     // is hundreds of megabytes per system, so the server uses the installed one.
     claude_path: z.string().min(1).default('claude'),
+    // Model and effort of calls with the owner, and of the other kinds unless
+    // they set their own (others here, the secretary in incoming).
     model: z.string().min(1).default('sonnet'),
     // Reasoning effort of the call session. Not set = Claude Code's default for
     // the model; low makes a slower model answer sooner (comparing Sonnet and
     // Opus on the phone, Karel 10. 10. 2026).
-    effort: z.enum(['low', 'medium', 'high', 'xhigh', 'max']).optional(),
+    effort: EFFORT.optional(),
+    // Calls to someone else on the owner's behalf: each kind of call can think
+    // differently (Karel, 12. 10. 2026).
+    others: z.object({ model: z.string().min(1).optional(), effort: EFFORT.optional() }).strict().optional(),
     // ElevenLabs voice settings for conversations, speed_stability_similarity.
     // Higher stability keeps the voice steadier between sentences: with the
     // ElevenLabs defaults Karel heard the loudness change (9. 10. 2026), with
@@ -108,7 +114,7 @@ const DEFAULT_INCOMING_TASK = [
   'A pause is not the end: people often say a message in pieces. If the last thing you heard sounds cut off, or is only "Jo?" or "Haló?", or you are not sure they have finished, ask "Je to všechno?" and wait for the answer.',
   'If the caller asks you something, answer briefly and ask "Je to všechno?"; do not say goodbye in the same reply. Say goodbye only after they confirm that is all.',
   'Do not guess from a name or a voice whether the caller is a man or a woman: no "pane" or "paní", say just "Děkuji".',
-  'If you have no message yet, ask once what you should pass on. Only when you have it, end with one short sentence that repeats its core - who called and what it is about, not word for word - e.g. "Vyřídím Karlovi, že se vám má ozvat kvůli smlouvě. Na shledanou.", and hang up. Never hang up without saying anything, never end with a bare "Vyřídím".',
+  'If you have no message yet, ask once what you should pass on. Only when you have it, end with one short goodbye, e.g. "Děkuji, vyřídím to. Na shledanou.", and hang up. Do not repeat the message back: the owner gets the whole call. Never hang up without saying anything.',
   'Do not sum up what they said during the call, do not repeat it back sentence by sentence.',
   'Do not say where the owner is or what he is doing, do not promise when he will call back, do not arrange anything.',
 ].join(' ');
@@ -134,8 +140,15 @@ const incomingSchema = z
     // Silence after which Twilio takes what the caller said as finished. People
     // leaving a message pause over two seconds between sentences; with the
     // default the secretary kept starting to answer and being cut off; 2.5 s
-    // made the gaps feel long, 2 s was right (Karel, 10. 10. 2026).
-    speech_timeout_ms: z.number().int().min(600).max(5000).default(2000),
+    // made the gaps feel long, 2 s was right (Karel, 10. 10. 2026). Measured on
+    // a recording 12. 10. 2026: Twilio adds about 0.6 s of its own on top, so
+    // 2 s meant over 4 s of silence; 1 s splits a message at every breath, but
+    // the pieces get one answer and nothing is heard of the started ones.
+    speech_timeout_ms: z.number().int().min(600).max(5000).default(1000),
+    // The secretary only takes a message: low effort answers about as well and
+    // sooner. Model not set = conversation.model.
+    model: z.string().min(1).optional(),
+    effort: EFFORT.default('low'),
     // For tuning only: records each call on two channels, measures from the
     // recording how long the caller waits for every answer, writes it into the
     // transcript and deletes the recording from Twilio. The transcript timings

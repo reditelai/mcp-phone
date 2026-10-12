@@ -57,3 +57,13 @@ test('the caller speaking before the goodbye is over calls the hang-up off', (t)
   assert.equal(ended, 0);
   assert.equal(hangUp.cancel(), false, 'nothing left to call off');
 });
+
+test('each kind of call has its own model and effort, falling back to the owner\'s', async () => {
+  const { callModel } = await import('../dist/conversation.js');
+  const config = { settings: { conversation: { model: 'sonnet', effort: 'medium', others: { effort: 'high' } }, incoming: { effort: 'low' } } };
+  assert.deepEqual(callModel(config, { owner: true }), { model: 'sonnet', effort: 'medium' });
+  assert.deepEqual(callModel(config, { owner: false }), { model: 'sonnet', effort: 'high' });
+  assert.deepEqual(callModel(config, { owner: false, incoming: true }), { model: 'sonnet', effort: 'low' });
+  config.settings.incoming.model = 'opus';
+  assert.equal(callModel(config, { owner: false, incoming: true }).model, 'opus');
+});

@@ -259,7 +259,7 @@ Když se majitel zeptá, kolik hovory stály nebo kolik mu zbývá: `node .dopln
 
 ## Změna nastavení
 
-Uprav `system/phone.json` běžně (klidné hodiny, další lidé, hlas, strop) a zavolej `tel_reload_config`. Server nastavení i klíče načte hned, bez nové konverzace; když soubor nejde načíst, nezmění se nic a chyba řekne proč. Klíče měň jen tak, že uživatel přepíše řádek v souboru s klíči sám (krok 6, editor), pak `tel_reload_config`.
+Uprav `system/phone.json` běžně (klidné hodiny, další lidé, hlas, strop) a zavolej `tel_reload_config`. Server nastavení i klíče načte hned, bez nové konverzace; když soubor nejde načíst, nezmění se nic a chyba řekne proč. Služba příchozích hovorů si změněný soubor načte sama před dalším hovorem (když v něm je chyba, platí dosavadní a stojí to v jejím logu); jen změna `public_url` nebo portu chce `systemctl --user restart mcp-phone-prichozi`. Klíče měň jen tak, že uživatel přepíše řádek v souboru s klíči sám (krok 6, editor), pak `tel_reload_config`.
 
 **Kdy volat:** když majitel řekne „volej mi i když…" nebo „tohle už mi nevolej", uprav položky `call_owner_when` jeho slovy a `tel_reload_config`. V téhle konverzaci platí, co jsi zapsala; instrukce serveru ho ukážou od příští konverzace.
 
@@ -356,8 +356,9 @@ Do `system/phone.json` přidej oddíl `conversation`:
 | `cloudflared_path` | cesta k programu cloudflared | `cloudflared` |
 | `listen_host`, `listen_port` | kde most poslouchá | `127.0.0.1`, `8787` |
 | `claude_path` | Claude Code pro hovorovou relaci | `claude` |
-| `model` | model hovorové relace; `sonnet` odpovídá nejrychleji a česky nejlíp | `sonnet` |
+| `model` | model hovorů s majitelem a výchozí i pro ostatní druhy; `sonnet` odpovídá nejrychleji a česky nejlíp | `sonnet` |
 | `effort` | jak moc relace přemýšlí před odpovědí: `low`, `medium`, `high`, `xhigh`, `max`. Nižší = rychlejší odpověď. Bez něj výchozí hodnota Claude Code pro model. Měň jen na majitelovo přání | nenastaveno |
+| `others` | jiný model nebo effort pro hovory s jinými lidmi za majitele, `{"model": "sonnet", "effort": "medium"}`; co chybí, platí z `model` a `effort`. Sekretářka má svoje v bloku `incoming`. Jen na majitelovo přání | nenastaveno |
 | `greeting` | první věta po zvednutí, když `tel_converse` nedostane `opening` | „Ahoj, tady Miládka. Poslouchám." |
 | `max_minutes` | nejdelší hovor, pak Twilio zavěsí | `10` |
 | `vault_dir` | složka, kterou relace čte | složka Miládky |
@@ -365,7 +366,7 @@ Do `system/phone.json` přidej oddíl `conversation`:
 | `transcript_dir` | kam se ukládá přepis každého hovoru, soubor `RRRR-MM-DD-HHMM-kdo.md` (u rozhovoru s majitelem `majitel`); v `system/`, aby se zálohoval | `system/hovory` |
 | `others_introduction` | první věta hovoru s kýmkoli jiným než majitelem: kdo volá a že je to AI asistentka, třeba „Dobrý den, tady Miládka, AI asistentka Karla Derfla.“ Musí obsahovat slovo „AI“. Bez ní `tel_converse_with` nefunguje. Znění navrhni a nech majitele schválit. | žádné |
 | `voice_tuning` | nastavení hlasu ElevenLabs v rozhovoru, `rychlost_stabilita_podobnost` (rychlost 0,7 až 1,2, ostatní 0 až 1), třeba `"1.0_1.0_0.8"`. Vyšší stabilita drží hlas stejnější mezi větami, když majitel slyší kolísání hlasitosti nebo tónu. Posuzuje se poslechem v telefonu. `null` = výchozí nastavení ElevenLabs. | `"1.0_1.0_0.8"` |
-| `transcription` | rozpoznávání řeči v rozhovoru i u sekretářky, `{"provider": "Deepgram", "model": "nova-3-general"}` nebo `{"provider": "Google"}`, `null` = co vybere Twilio (pro češtinu Google). Česky umí Google a Deepgram `nova-3-general` a `nova-2-general`, Deepgram `flux` ne. Ve zkušebních hovorech 10. 10. 2026 dal Deepgram líp čísla a místa. Po změně u příchozích hovorů `systemctl --user restart mcp-phone-prichozi`. | Deepgram `nova-3-general` |
+| `transcription` | rozpoznávání řeči v rozhovoru i u sekretářky, `{"provider": "Deepgram", "model": "nova-3-general"}` nebo `{"provider": "Google"}`, `null` = co vybere Twilio (pro češtinu Google). Česky umí Google a Deepgram `nova-3-general` a `nova-2-general`, Deepgram `flux` ne. Ve zkušebních hovorech 10. 10. 2026 dal Deepgram líp čísla a místa. | Deepgram `nova-3-general` |
 | `timings` | časy v přepisu: první slovo po otázce, rozestup řádků volajícího, běh nástrojů, start relace; na ladění rychlosti | `false` |
 | `vault_read` | relace smí číst poznámky | `true` |
 | `mcp_servers`, `allowed_tools` | další servery pro relaci a nástroje z nich, které smí použít. Pro poštu z Multigmailu stačí `mg_list_accounts`, `mg_search_threads` a `mg_get_message` (s předponou `mcp__multi-gmail__`); celé vlákno, hledání ve všech schránkách a cokoli, co ve schránce něco mění (i koncept), server za hovoru stejně odmítne. **Nikdy WhatsApp** - drží jedno spojení a druhá relace by ho shodila. Jen servery spouštěné z počítače (`command`/`args`). Konektory z claude.ai do hovoru dát nejde, třeba Google Calendar nebo Gmail. Kdo má poštu napojenou jen přes Claude, bez doplňku Multigmail, nemá ji v hovoru vůbec. Hovor pak umí jen poznámky. | žádné |
@@ -419,7 +420,7 @@ Zavolá jinému člověku a domluví s ním jednu konkrétní věc: zjistit info
 
 # Část D - Příchozí hovory (jen server)
 
-Sekretářka: když majitel nezvedá, operátor hovor přesměruje na číslo u Twilia a Miládka ho vezme. Nechá volajícího říct, co chce, zeptá se nanejvýš na jméno, a když si není jistá, že domluvil, nebo odpověděla na jeho otázku, zeptá se „Je to všechno?“. Skončí jednou krátkou větou, co vyřídí, a rozloučí se. Pauzu ve vzkazu přečká (Twilio počká na ticho, `incoming.speech_timeout_ms`) beze slova zavěsit nejde (server to odmítne) a když volající mluví dál, než rozloučení dozní, hovor nezavěsí. Nic neprozradí ani neslíbí. Vzkaz pak dostaneš ty a předáš ho majiteli.
+Sekretářka: když majitel nezvedá, operátor hovor přesměruje na číslo u Twilia a Miládka ho vezme. Nechá volajícího říct, co chce, zeptá se nanejvýš na jméno, a když si není jistá, že domluvil, nebo odpověděla na jeho otázku, zeptá se „Je to všechno?“. Skončí krátkým rozloučením, vzkaz volajícímu neopakuje (majitel dostane celý hovor). Pauzu ve vzkazu přečká (Twilio počká na ticho, `incoming.speech_timeout_ms`) beze slova zavěsit nejde (server to odmítne) a když volající mluví dál, než rozloučení dozní, hovor nezavěsí. Nic neprozradí ani neslíbí. Vzkaz pak dostaneš ty a předáš ho majiteli.
 
 **Tohle je nejnáročnější část addonu a zasahuje do majitelova telefonu.** Přesměrování u operátora se nastavuje až úplně na konci, když všechno ostatní prokazatelně funguje. Napůl udělané nastavení znamená, že volající uslyší chybu nebo nic. **Když kterákoli podmínka níž neplatí, nepokračuj.** Řekni uživateli, co chybí, a skonči. Nic nenastavuj „zatím“.
 
@@ -458,7 +459,9 @@ Sekretářka: když majitel nezvedá, operátor hovor přesměruje na číslo u 
    "hints": ["Karel Derfl", "Mapotip", "Geoplan", "Přerov"]
    ```
 
-   **Čekání na konec věty** (`incoming.speech_timeout_ms`, výchozí `2000`): kolik milisekund ticha Twilio počká, než vezme, co volající řekl, za hotové (600 až 5000). Lidé nechávající vzkaz dělají mezi větami pauzy přes dvě vteřiny. Když sekretářka pořád skáče do řeči, zvyš; když odpovídá pomalu, sniž.
+   **Čekání na konec věty** (`incoming.speech_timeout_ms`, výchozí `1000`): kolik milisekund ticha Twilio počká, než vezme, co volající řekl, za hotové (600 až 5000). Twilio k tomu přidá ještě asi 0,6 s vlastních. Při 1000 Twilio dělí vzkaz při nadechnutí, server kousky spojí a z rozjeté odpovědi nic nezazní. Když volající slyší, že mu sekretářka skáče do řeči, zvyš (třeba na 1500); když odpovídá pomalu, sniž.
+
+   **Model a effort sekretářky** (`incoming.model`, `incoming.effort`, výchozí model z `conversation.model` a effort `low`): sekretářka jen zapisuje vzkaz, `low` odpovídá stejně dobře a dřív. Měň jen na majitelovo přání.
 
    **Měření prodlev** (`incoming.measure_gaps`, výchozí `false`): jen na ladění, na majitelův pokyn. Hovor se nahraje do dvou stop, po zavěšení služba z nahrávky změří, jak dlouho volající u každé odpovědi čekal (od konce jeho řeči po první zvuk sekretářky), a zapíše to do přepisu řádky `měření:` s rozpadem na Twilio (rozpoznání konce věty), model a hlas. Nahrávku pak z Twilia smaže, nikam ji neukládá. Přepis přijde o pár sekund později než obvykle. Volající o nahrávání neví, proto jen pro zkušební hovory majitele; po ladění vypni.
 2. **Tajná adresa a číslo**: `node .doplnky/mcp-phone/mcp-phone.mjs --setup-incoming --config system/phone.json`. Vygeneruje tajnou část adresy, na kterou Twilio posílá hovory, a zapíše ji do souboru s klíči (`incoming_secret`), ne do nastavení: nastavení se zálohuje do gitu a tajná adresa je jediná ochrana služby. **Nikdy ji nečti ani nevypisuj**, stejně jako klíče. Pak nasměruje číslo v Twiliu na službu. Opakované spuštění tajnou adresu nemění.

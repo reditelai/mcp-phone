@@ -5,6 +5,21 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.12] - 2026-10-12
+
+Sekretářka odpovídá rychleji a loučí se krátce, každý druh hovoru může mít vlastní model a effort a služba si změněné nastavení načte sama.
+
+- Služba příchozích hovorů si `phone.json` po změně načte znovu před dalším hovorem. Dosud ho četla jen při startu, `tel_reload_config` měnil jen server v konverzaci: celé odpoledne zkušebních hovorů 12. 10. 2026 běželo na starých hodnotách.
+- Model a effort zvlášť pro hovory s majitelem (`conversation.model`, `conversation.effort`), s jinými lidmi (`conversation.others`) a pro sekretářku (`incoming.model`, `incoming.effort`); co chybí, platí od majitele (Karel).
+- Sekretářka: výchozí `incoming.effort` `low` a `incoming.speech_timeout_ms` 1000 místo 2000. Měřeno z nahrávky: Twilio přidá ke svému čekání asi 0,6 s, s 2 s volající čekal přes 4 s, teď kolem 3 s. Při 1 s Twilio dělí vzkaz při nadechnutí, server kousky spojí a z rozjetých odpovědí nic nezazní.
+- Sekretářka se na konci jen krátce rozloučí („Děkuji, vyřídím to. Na shledanou."), vzkaz volajícímu neopakuje: majitel dostane celý hovor a shrnutí bylo nejpomalejší odpovědí hovoru (Karel).
+
+### Při aktualizaci
+
+- Když má `system/phone.json` v bloku `incoming` výslovně `speech_timeout_ms` 2000 (dřívější výchozí) nebo vlastní `task` se starou větou o zopakování vzkazu, a majitel si je nevybral sám, nabídni je smazat, ať platí nové výchozí.
+- Když je `conversation.effort` nastavený jen kvůli sekretářce, nabídni ho smazat: sekretářka má teď `low` sama a hovory s majitelem pak přemýšlí jako dřív.
+- Službu příchozích hovorů po aktualizaci restartuj (`systemctl --user restart mcp-phone-prichozi`), ať běží nová verze. Další změny nastavení už si načte sama.
+
 ## [0.3.11] - 2026-10-12
 
 Měření, jak dlouho volající čeká na odpověď sekretářky, z nahrávky hovoru (na ladění, výchozí vypnuté).

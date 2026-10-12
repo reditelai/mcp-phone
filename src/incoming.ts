@@ -20,7 +20,7 @@
  * with the transcripts and deletes them from Twilio.
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -28,7 +28,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 
 import { logCall } from './calllog.js';
-import type { Config } from './config.js';
+import { loadConfig, type Config } from './config.js';
 import {
   conversationVaultDir,
   escapeXml,
@@ -164,18 +164,43 @@ export function voicemailTwiml(config: Config): string {
 const CLOSING = 'Omlouvám se, už musím končit. Vzkaz předám. Na shledanou.';
 
 /** Runs until stopped. */
-export async function serve(config: Config): Promise<void> {
-  const { settings, keys } = config;
-  const conv = settings.conversation;
-  const incoming = settings.incoming;
+export async function serve(config: Config, configPath?: string): Promise<void> {
+  let { settings, keys } = config;
+  let conv = settings.conversation;
+  let incoming = settings.incoming;
   const problems = incomingProblems(config);
   if (problems.length > 0) throw new Error(`Příchozí hovory nejdou spustit: ${problems.join('; ')}.`);
   const base = incomingBase(config)!;
   const prefix = `/prichozi/${config.keys.incoming_secret}`;
-  const vaultDir = conversationVaultDir(config);
-  const claude = findExecutable(conv.claude_path);
+  let vaultDir = conversationVaultDir(config);
+  let claude = findExecutable(conv.claude_path);
   const log = (line: string): void => {
     process.stderr.write(`${new Date().toISOString()} ${line}\n`);
+  };
+
+  // The service runs for days: a changed phone.json is read again before the
+  // next call. Until 0.3.12 it was read only at start, and a whole afternoon
+  // of test calls ran on the old values (12. 10. 2026). The address and the
+  // port stay as they were until a restart.
+  const loadedAt = (): number => (configPath !== undefined && existsSync(configPath) ? statSync(configPath).mtimeMs : 0);
+  let loaded = loadedAt();
+  const refresh = async (): Promise<void> => {
+    const now = loadedAt();
+    if (configPath === undefined || now === loaded) return;
+    loaded = now;
+    try {
+      const next = await loadConfig(configPath);
+      config = next;
+      ({ settings, keys } = next);
+      conv = settings.conversation;
+      incoming = settings.incoming;
+      vaultDir = conversationVaultDir(next);
+      claude = findExecutable(conv.claude_path);
+      if (incomingBase(next) !== base) log('nastavení: adresa služby se změnila, platí až po restartu');
+      log('nastavení: změněné, načteno znovu');
+    } catch (error) {
+      log(`nastavení: změna nejde načíst, platí dosavadní (${error instanceof Error ? error.message : String(error)})`);
+    }
   };
 
   interface Call {
@@ -290,7 +315,8 @@ export async function serve(config: Config): Promise<void> {
       response.end();
       return;
     }
-    void readBody(request).then((form) => {
+    void readBody(request).then(async (form) => {
+      await refresh();
       const sid = form.get('CallSid') ?? '';
       const from = form.get('From') ?? '';
       const forwardedFrom = form.get('ForwardedFrom') ?? '';

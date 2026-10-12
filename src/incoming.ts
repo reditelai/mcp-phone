@@ -205,11 +205,16 @@ export function addPinFailure(config: Config): boolean {
   return pinLocked(config);
 }
 
-/** Asks for the PIN on the keypad; no keys pressed = the secretary, as for anyone. */
+/** What is wrong with the PIN in the keys file, or null. A wrong one turns off only the PIN, not the service. */
+export function pinProblem(pin: string): string | null {
+  return /^\d{4,10}$/.test(pin) ? null : 'PIN v souboru s klíči nemá 4 až 10 číslic';
+}
+
+/** Asks for the PIN on the keypad; no keys pressed = goodbye. */
 function pinTwiml(config: Config, base: string, pin: string, text: string): string {
   return twiml(
     `<Gather input="dtmf" numDigits="${pin.length}" timeout="6" action="${escapeXml(`${base}/pin`)}" method="POST">${say(config, text)}</Gather>` +
-      `<Redirect method="POST">${escapeXml(`${base}/secretary`)}</Redirect>`,
+      `${say(config, texts(config).bye)}<Hangup/>`,
   );
 }
 
@@ -387,8 +392,7 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
       response.end(twiml('<Hangup/>'));
       return;
     }
-    const voice = url === `${prefix}/voice` || url === `${prefix}/secretary`;
-    if ((!voice && url !== `${prefix}/pin`) || request.method !== 'POST') {
+    if ((url !== `${prefix}/voice` && url !== `${prefix}/pin`) || request.method !== 'POST') {
       response.writeHead(404);
       response.end();
       return;
@@ -418,14 +422,24 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
         return;
       }
       const pin = keys.owner_pin;
-      // A direct call from the owner's own number first asks for the PIN;
-      // without it (no keys pressed) the secretary takes it as for anyone.
-      if (url === `${prefix}/voice` && pin !== undefined && forwardedFrom === '' && ownerLine(config, from) && !pinLocked(config)) {
+      // With a PIN set, a direct call from the owner's own number gets his
+      // assistant with the right PIN, or ends: no secretary for it, she is
+      // tried through forwarding from another phone (Karel, 12. 10. 2026).
+      // Without a PIN set, the secretary takes it as before.
+      const ownerDirect = forwardedFrom === '' && ownerLine(config, from);
+      if (url === `${prefix}/voice` && ownerDirect && pin !== undefined) {
+        const problem = pinProblem(pin) ?? (pinLocked(config) ? 'PIN je dnes po deseti špatných pokusech vypnutý' : null);
+        if (problem !== null) {
+          log(`hovor od ${from}: ${problem}, položeno`);
+          response.end(twiml(`${say(config, texts(config).bye)}<Hangup/>`));
+          enqueue(config, { druh: 'pin', cas: new Date().toISOString(), od: from, presmerovano_z: '', delka_s: 0, soubor: null });
+          return;
+        }
         response.end(pinTwiml(config, base, pin, texts(config).pin));
         return;
       }
       if (url === `${prefix}/pin`) {
-        if (pin === undefined || forwardedFrom !== '' || !ownerLine(config, from) || pinLocked(config)) {
+        if (pin === undefined || pinProblem(pin) !== null || !ownerDirect || pinLocked(config)) {
           response.end(twiml('<Hangup/>'));
           return;
         }
@@ -493,7 +507,7 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
     const relay = `${base.replace(/^https:/, 'wss:')}/relay/${call.relaySecret}`;
     // The owner's call listens like a call Miládka places to him; the
     // secretary waits incoming.speech_timeout_ms for a message said in pieces.
-    const timing = callee.owner ? '' : ` speechTimeout="${incoming.speech_timeout_ms}"${relayHints(config, incoming.hints)}`;
+    const timing = callee.owner ? '' : `${incoming.speech_timeout_ms === null ? '' : ` speechTimeout="${incoming.speech_timeout_ms}"`}${relayHints(config, incoming.hints)}`;
     return twiml(
       `<Connect action="${escapeXml(`${base}/done`)}"><ConversationRelay url="${escapeXml(relay)}" language="${escapeXml(settings.language)}" ` +
         `ttsProvider="ElevenLabs" voice="${escapeXml(relayVoice(config))}" welcomeGreeting="${escapeXml(greeting)}"${relayTranscription(config)}${timing} /></Connect>`,

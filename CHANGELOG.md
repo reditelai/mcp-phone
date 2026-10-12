@@ -5,6 +5,21 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.16] - 2026-10-12
+
+Přímý hovor z majitelova čísla s PINem už nekončí u sekretářky, překlep v PINu nevypne službu a sekretářka jde zkusit s automatikou Twilia.
+
+- S nastaveným PINem dostane přímý hovor z majitelova čísla jen výzvu k PINu: správný pustí k asistentce, bez PINu nebo po třech špatných se služba rozloučí a položí. Sekretářka se zkouší z jiného telefonu přes přesměrování (Karel).
+- PIN v souboru s klíči, který nemá 4 až 10 číslic, už službu neshodí: sekretářka dál bere přesměrované hovory, přímé hovory majitele se pokládají, asistent dostane vzkaz `pin` a `--check` to ukáže. Dosud kvůli překlepu v PINu nebrala hovory vůbec (12. 10. 2026).
+- `incoming.speech_timeout_ms` jde nastavit na `null`: automatika Twilia jako v hovorech s majitelem, v měření o 0,5 až 1 s rychlejší. Výchozí zůstává 1000.
+- Návod: když se asistentka u majitele jmenuje jinak než Miládka, pozdrav `conversation.greeting` s jejím jménem (po PINu se představila cizím jménem).
+
+### Při aktualizaci
+
+- Když majitel PIN má a dosud zkoušel sekretářku z vlastního čísla bez PINu, řekni mu, že to už nejde: přímý hovor bez PINu se položí, sekretářku zkusí z jiného telefonu přes přesměrování.
+- Když se asistentka u majitele jmenuje jinak než Miládka a `conversation.greeting` nemá, nabídni pozdrav s jejím jménem.
+- Službu příchozích hovorů po aktualizaci restartuj (`systemctl --user restart mcp-phone-prichozi`).
+
 ## [0.3.15] - 2026-10-12
 
 PIN stačí čtyřmístný a služba mluví jazykem nastavení.

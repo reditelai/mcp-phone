@@ -80,10 +80,13 @@ test('the service speaks the language of the settings', async () => {
   assert.match(xml, /Thank you, goodbye/);
 });
 
-test('a PIN has four to ten digits', async () => {
+test('a PIN has four to ten digits, a wrong one does not stop the service', async () => {
+  const { pinProblem } = await import('../dist/incoming.js');
   const { keysSchema } = await import('../dist/config.js');
+  assert.equal(pinProblem('4829'), null);
+  assert.equal(pinProblem('4829104712'), null);
+  assert.match(pinProblem('482'), /4 až 10/);
+  assert.match(pinProblem('48a9'), /4 až 10/);
   const keys = { account_sid: 'AC' + '0'.repeat(32), api_key: 'SK' + '0'.repeat(32), api_secret: 'x'.repeat(32) };
-  assert.ok(keysSchema.safeParse({ ...keys, owner_pin: '4829' }).success);
-  assert.ok(!keysSchema.safeParse({ ...keys, owner_pin: '482' }).success);
-  assert.ok(!keysSchema.safeParse({ ...keys, owner_pin: '48a9' }).success);
+  assert.ok(keysSchema.safeParse({ ...keys, owner_pin: '482' }).success);
 });

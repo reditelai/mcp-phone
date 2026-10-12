@@ -145,7 +145,9 @@ export const incomingSchema = z
     // a recording 12. 10. 2026: Twilio adds about 0.6 s of its own on top, so
     // 2 s meant over 4 s of silence; 1 s splits a message at every breath, but
     // the pieces get one answer and nothing is heard of the started ones.
-    speech_timeout_ms: z.number().int().min(600).max(5000).default(1000),
+    // null = Twilio's own end-of-speech detection, as in the owner's calls:
+    // 0.5 to 1 s sooner, but it cuts into pauses more (12. 10. 2026, to try).
+    speech_timeout_ms: z.number().int().min(600).max(5000).nullable().default(1000),
     // The secretary only takes a message: low effort answers about as well and
     // sooner. Her own model, not the owner's.
     model: z.string().min(1).default('sonnet'),
@@ -233,8 +235,9 @@ export const keysSchema = z
     // The owner's PIN: a direct call from his own number plus this PIN, typed
     // on the keypad, gets the full assistant instead of the secretary. A caller
     // ID can be faked, the PIN not (Karel, 12. 10. 2026). The owner writes it
-    // here himself; nobody reads it out.
-    owner_pin: z.string().regex(/^\d{4,10}$/, 'PIN má 4 až 10 číslic').optional(),
+    // here himself; nobody reads it out. Checked by the service (pinProblem),
+    // not here: a typo turns off the PIN, not the secretary.
+    owner_pin: z.string().optional(),
   })
   .strict();
 

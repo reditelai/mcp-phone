@@ -5,6 +5,17 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.17] - 2026-10-12
+
+Sekretářce jde nastavit výchozí effort Claude Code.
+
+- `incoming.effort` jde nastavit na `null` = výchozí effort Claude Code, jako v hovorech s majitelem. Výchozí zůstává `low`. Kvůli srovnání: v měření nebyla sekretářka s `low` jednoznačně rychlejší (Karel).
+
+### Při aktualizaci
+
+- Nastavení se nemění.
+- Službu příchozích hovorů po aktualizaci restartuj (`systemctl --user restart mcp-phone-prichozi`).
+
 ## [0.3.16] - 2026-10-12
 
 Přímý hovor z majitelova čísla s PINem už nekončí u sekretářky, překlep v PINu nevypne službu a sekretářka jde zkusit s automatikou Twilia.

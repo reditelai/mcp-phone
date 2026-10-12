@@ -66,4 +66,6 @@ test('each kind of call has its own model and effort, none takes the owner\'s', 
   assert.deepEqual(callModel(config, { owner: true }), { model: 'opus', effort: 'medium' });
   assert.deepEqual(callModel(config, { owner: false }), { model: 'sonnet', effort: undefined });
   assert.deepEqual(callModel(config, { owner: false, incoming: true }), { model: 'sonnet', effort: 'low' });
+  const own = { settings: settingsSchema.parse({ owner: '+420777123456', from: '+420777123457', incoming: { effort: null } }) };
+  assert.equal(callModel(own, { owner: false, incoming: true }).effort, undefined);
 });

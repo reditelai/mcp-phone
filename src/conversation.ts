@@ -423,7 +423,7 @@ export function writeTranscript(config: Config, vaultDir: string, context: strin
 export function callModel(config: Config, callee: Callee): { model: string; effort: Config['settings']['conversation']['effort'] } {
   const conv = config.settings.conversation;
   const own = callee.incoming ? config.settings.incoming : callee.owner ? conv : conv.others;
-  return { model: own.model, effort: own.effort };
+  return { model: own.model, effort: own.effort ?? undefined };
 }
 
 /** What the bridge says on its own while a tool runs, by language of the call. */

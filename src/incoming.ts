@@ -22,13 +22,13 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage } from 'node:http';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { dirname, join, relative, resolve } from 'node:path';
 
 import { WebSocketServer, type WebSocket } from 'ws';
 
 import { logCall } from './calllog.js';
-import { loadConfig, type Config } from './config.js';
+import { loadConfig, OWNER, type Config } from './config.js';
 import {
   conversationVaultDir,
   escapeXml,
@@ -94,8 +94,11 @@ function markCollected(config: Config, sid: string): void {
 
 /** One message for the assistant, a line of JSON in the queue file. */
 export interface QueuedMessage {
-  /** "rozhovor": the secretary took it; "zaznamnik": a recording while the service was off; "odmitnuto": rejected, not forwarded from the owner's numbers. */
-  druh: 'rozhovor' | 'zaznamnik' | 'odmitnuto';
+  /**
+   * "rozhovor": the secretary took it; "zaznamnik": a recording while the service was off; "odmitnuto": rejected, not forwarded from the owner's numbers;
+   * "majitel": the owner called with his PIN and talked to the assistant; "pin": a wrong PIN from the owner's number (soubor null).
+   */
+  druh: 'rozhovor' | 'zaznamnik' | 'odmitnuto' | 'majitel' | 'pin';
   cas: string;
   od: string;
   presmerovano_z: string;
@@ -133,7 +136,7 @@ function say(config: Config, text: string): string {
 
 /**
  * Whether two numbers are the same line. Twilio gives ForwardedFrom without
- * the country code sometimes (724925753 for +420724925753), so the national
+ * the country code sometimes (777123456 for +420777123456), so the national
  * part decides.
  */
 export function sameNumber(a: string, b: string): boolean {
@@ -154,6 +157,60 @@ export function admitted(config: Config, from: string, forwardedFrom: string): b
   if (lines === undefined) return true;
   const ours = (number: string): boolean => lines.some((line) => sameNumber(line, number));
   return forwardedFrom !== '' ? ours(forwardedFrom) : ours(from);
+}
+
+/** The owner's own numbers: the one Miládka calls and the lines in incoming.owner_lines. */
+export function ownerLine(config: Config, number: string): boolean {
+  return [config.settings.owner, ...(config.settings.incoming.owner_lines ?? [])].some((line) => sameNumber(line, number));
+}
+
+/** Wrong PINs: three in a call end it, ten in a day switch the PIN off until tomorrow. */
+export const PIN_TRIES_PER_CALL = 3;
+export const PIN_FAILURES_PER_DAY = 10;
+
+/** What the session is told when the owner got through with the PIN. */
+const OWNER_CALLED = 'The owner called you himself and confirmed it with his PIN. There is no other reason for the call: listen to what he wants.';
+
+export function pinMatches(pin: string, digits: string): boolean {
+  const a = Buffer.from(pin);
+  const b = Buffer.from(digits.replace(/\D/g, ''));
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+function pinPath(config: Config): string {
+  return join(dirname(queuePath(config)), 'prichozi-pin.json');
+}
+
+function today(config: Config): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: config.settings.timezone }).format(new Date());
+}
+
+function pinFailures(config: Config): number {
+  const file = pinPath(config);
+  if (!existsSync(file)) return 0;
+  const state = JSON.parse(readFileSync(file, 'utf8')) as { den?: string; chyby?: number };
+  return state.den === today(config) ? (state.chyby ?? 0) : 0;
+}
+
+/** Kept in a file, not in memory: a restart must not give a guesser new tries. */
+export function pinLocked(config: Config): boolean {
+  return pinFailures(config) >= PIN_FAILURES_PER_DAY;
+}
+
+/** Counts a wrong PIN; true once the PIN is off for the rest of the day. */
+export function addPinFailure(config: Config): boolean {
+  const file = pinPath(config);
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, JSON.stringify({ den: today(config), chyby: pinFailures(config) + 1 }));
+  return pinLocked(config);
+}
+
+/** Asks for the PIN on the keypad; no keys pressed = the secretary, as for anyone. */
+function pinTwiml(config: Config, base: string, pin: string, text: string): string {
+  return twiml(
+    `<Gather input="dtmf" numDigits="${pin.length}" timeout="6" action="${escapeXml(`${base}/pin`)}" method="POST">${say(config, text)}</Gather>` +
+      `<Redirect method="POST">${escapeXml(`${base}/secretary`)}</Redirect>`,
+  );
 }
 
 /** What a caller gets when the secretary is off: a short message and the beep. */
@@ -252,7 +309,7 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
         info: { sid: call.sid, status: 'completed', duration_seconds: seconds, started: new Date(call.startedAt).toISOString(), ring_seconds: null },
         transcript: file,
       });
-      enqueue(config, { druh: 'rozhovor', cas: new Date(call.startedAt).toISOString(), od: call.from, presmerovano_z: call.forwardedFrom, delka_s: seconds, soubor: file });
+      enqueue(config, { druh: call.callee.owner ? 'majitel' : 'rozhovor', cas: new Date(call.startedAt).toISOString(), od: call.from, presmerovano_z: call.forwardedFrom, delka_s: seconds, soubor: file });
       log(`hovor od ${call.from} skončil (${call.endedBy}), ${seconds} s`);
     };
     // The measured gaps go into the transcript before anyone reads it.
@@ -310,7 +367,8 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
       response.end(twiml('<Hangup/>'));
       return;
     }
-    if (url !== `${prefix}/voice` || request.method !== 'POST') {
+    const voice = url === `${prefix}/voice` || url === `${prefix}/secretary`;
+    if ((!voice && url !== `${prefix}/pin`) || request.method !== 'POST') {
       response.writeHead(404);
       response.end();
       return;
@@ -339,47 +397,88 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
         response.end(twiml('<Reject reason="busy"/>'));
         return;
       }
-      const callee: Callee = { number: from, name: `příchozí ${from || 'neznámé číslo'}`, owner: false, incoming: true };
-      const transcript: Line[] = [];
-      const call: Call = {
-        sid,
-        from,
-        forwardedFrom,
-        relaySecret: randomBytes(24).toString('hex'),
-        callee,
-        transcript,
-        // The isolated session: the same as for a call to someone else.
-        session: startSession(config, vaultDir, claude, callee, incoming.greeting, incoming.task, transcript, () => {
-          call.endedBy = 'assistant';
-        }),
-        startedAt: Date.now(),
-        endedBy: 'caller',
-        finished: false,
-        connected: false,
-      };
-      current = call;
-      log(`hovor od ${from}${forwardedFrom ? ` (přesměrováno z ${forwardedFrom})` : ''}`);
-      const voice = relayVoice(config);
-      const relay = `${base.replace(/^https:/, 'wss:')}/relay/${call.relaySecret}`;
-      response.end(
-        twiml(
-          `<Connect action="${escapeXml(`${base}/done`)}"><ConversationRelay url="${escapeXml(relay)}" language="${escapeXml(settings.language)}" ` +
-            `ttsProvider="ElevenLabs" voice="${escapeXml(voice)}" welcomeGreeting="${escapeXml(incoming.greeting)}"${relayTranscription(config)} speechTimeout="${incoming.speech_timeout_ms}"` +
-            relayHints(config, incoming.hints) +
-            ` /></Connect>`,
-        ),
-      );
-      // A call whose relay never connects is closed after a minute, with the
-      // session. Not by an empty transcript: the warm-up writes a timing line
-      // into it, and the call hung until a restart (10. 10. 2026).
-      setTimeout(() => {
-        if (!call.finished && !call.connected && current === call) {
-          call.endedBy = 'nepřipojeno do minuty';
-          finish(call);
+      const pin = keys.owner_pin;
+      // A direct call from the owner's own number first asks for the PIN;
+      // without it (no keys pressed) the secretary takes it as for anyone.
+      if (url === `${prefix}/voice` && pin !== undefined && forwardedFrom === '' && ownerLine(config, from) && !pinLocked(config)) {
+        response.end(pinTwiml(config, base, pin, 'Zadej PIN.'));
+        return;
+      }
+      if (url === `${prefix}/pin`) {
+        if (pin === undefined || forwardedFrom !== '' || !ownerLine(config, from) || pinLocked(config)) {
+          response.end(twiml('<Hangup/>'));
+          return;
         }
-      }, 60_000).unref();
+        if (!pinMatches(pin, form.get('Digits') ?? '')) {
+          const tries = (pinTries.get(sid) ?? 0) + 1;
+          pinTries.set(sid, tries);
+          const locked = addPinFailure(config);
+          log(`hovor od ${from}: špatný PIN (${tries}. pokus v hovoru)`);
+          if (tries < PIN_TRIES_PER_CALL && !locked) {
+            response.end(pinTwiml(config, base, pin, 'To nesedí. Zadej PIN znovu.'));
+            return;
+          }
+          pinTries.delete(sid);
+          response.end(twiml(`${say(config, 'Na shledanou.')}<Hangup/>`));
+          enqueue(config, { druh: 'pin', cas: new Date().toISOString(), od: from, presmerovano_z: '', delka_s: 0, soubor: null });
+          if (locked) log('PIN: dnes příliš mnoho špatných pokusů, do zítřka vypnutý');
+          return;
+        }
+        pinTries.delete(sid);
+        log(`hovor od ${from}: PIN v pořádku, majitel`);
+        const callee: Callee = { number: from, name: settings.language.startsWith('cs') ? 'majitel' : OWNER, owner: true };
+        response.end(connect(sid, from, '', callee, conv.greeting, OWNER_CALLED));
+        return;
+      }
+      const callee: Callee = { number: from, name: `příchozí ${from || 'neznámé číslo'}`, owner: false, incoming: true };
+      log(`hovor od ${from}${forwardedFrom ? ` (přesměrováno z ${forwardedFrom})` : ''}`);
+      response.end(connect(sid, from, forwardedFrom, callee, incoming.greeting, incoming.task));
     });
   });
+
+  /** Wrong PINs within one call, by call sid. */
+  const pinTries = new Map<string, number>();
+
+  /**
+   * Starts the session for a call and returns the TwiML that connects it:
+   * the isolated secretary, or the owner's own assistant after the PIN.
+   */
+  const connect = (sid: string, from: string, forwardedFrom: string, callee: Callee, greeting: string, context: string): string => {
+    const transcript: Line[] = [];
+    const call: Call = {
+      sid,
+      from,
+      forwardedFrom,
+      relaySecret: randomBytes(24).toString('hex'),
+      callee,
+      transcript,
+      session: startSession(config, vaultDir, claude, callee, greeting, context, transcript, () => {
+        call.endedBy = 'assistant';
+      }),
+      startedAt: Date.now(),
+      endedBy: 'caller',
+      finished: false,
+      connected: false,
+    };
+    current = call;
+    // A call whose relay never connects is closed after a minute, with the
+    // session. Not by an empty transcript: the warm-up writes a timing line
+    // into it, and the call hung until a restart (10. 10. 2026).
+    setTimeout(() => {
+      if (!call.finished && !call.connected && current === call) {
+        call.endedBy = 'nepřipojeno do minuty';
+        finish(call);
+      }
+    }, 60_000).unref();
+    const relay = `${base.replace(/^https:/, 'wss:')}/relay/${call.relaySecret}`;
+    // The owner's call listens like a call Miládka places to him; the
+    // secretary waits incoming.speech_timeout_ms for a message said in pieces.
+    const timing = callee.owner ? '' : ` speechTimeout="${incoming.speech_timeout_ms}"${relayHints(config, incoming.hints)}`;
+    return twiml(
+      `<Connect action="${escapeXml(`${base}/done`)}"><ConversationRelay url="${escapeXml(relay)}" language="${escapeXml(settings.language)}" ` +
+        `ttsProvider="ElevenLabs" voice="${escapeXml(relayVoice(config))}" welcomeGreeting="${escapeXml(greeting)}"${relayTranscription(config)}${timing} /></Connect>`,
+    );
+  };
 
   const sockets = new WebSocketServer({ noServer: true });
   server.on('upgrade', (request, socket, head) => {
@@ -420,13 +519,13 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
             })
             .catch((error: unknown) => log(`měření: nahrávání se nespustilo: ${error instanceof Error ? error.message : String(error)}`));
         }
-        // The secretary is short (Karel: "klidně přísnější, 2-3 min").
+        // The secretary is short (Karel: "klidně přísnější, 2-3 min"); the owner's own call is as long as one Miládka places.
         limit = setTimeout(() => {
           ws.send(JSON.stringify({ type: 'text', token: CLOSING, last: true }));
           call.transcript.push({ who: 'assistant', text: CLOSING });
           call.endedBy = 'time_limit';
           setTimeout(() => ws.send(JSON.stringify({ type: 'end' })), speakingMs(CLOSING));
-        }, incoming.max_minutes * 60_000);
+        }, (call.callee.owner ? conv.max_minutes : incoming.max_minutes) * 60_000);
       } else if (message['type'] === 'prompt' && message['last'] === true && mine) {
         const text = String(message['voicePrompt'] ?? '').trim();
         if (text !== '') call.session.say(text);

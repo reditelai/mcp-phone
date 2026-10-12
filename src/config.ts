@@ -35,7 +35,7 @@ export const OWNER = 'owner';
  * a bridge in this server passes the text to a separate Claude session and
  * back. Off until the owner sets it up: it needs an address Twilio can reach.
  */
-const conversationSchema = z
+export const conversationSchema = z
   .object({
     enabled: z.boolean().default(false),
     // The address Twilio connects to, e.g. https://telefon.example.com - a
@@ -125,7 +125,7 @@ const DEFAULT_INCOMING_TASK = [
  * secretary that only takes a message (Karel, 9. 10. 2026). The session that
  * talks to the caller is the same isolated one as for calls to others.
  */
-const incomingSchema = z
+export const incomingSchema = z
   .object({
     // Off = the caller hears voicemail_text and can leave a recording
     // (holidays, or while it is not set up).
@@ -175,7 +175,7 @@ const incomingSchema = z
   })
   .strict();
 
-const settingsSchema = z
+export const settingsSchema = z
   .object({
     // The owner is the only one Miládka calls on her own, the only one she may
     // tell anything from the notes and mail, and the only one an urgent call
@@ -217,7 +217,7 @@ export type Conversation = z.infer<typeof conversationSchema>;
 export type Incoming = z.infer<typeof incomingSchema>;
 export type Settings = z.infer<typeof settingsSchema>;
 
-const keysSchema = z
+export const keysSchema = z
   .object({
     account_sid: z.string().regex(/^AC[0-9a-f]{32}$/, 'Account SID začíná AC a má 34 znaků'),
     api_key: z.string().regex(/^SK[0-9a-f]{32}$/, 'SID API klíče začíná SK a má 34 znaků'),
@@ -229,6 +229,11 @@ const keysSchema = z
     // thing that guards it. Here and not in the settings: those are backed up
     // to git (Věrka 9. 10. 2026). --setup-incoming writes it, nobody reads it.
     incoming_secret: z.string().regex(/^[A-Za-z0-9_-]{24,}$/, 'aspoň 24 znaků z písmen, číslic, - a _').optional(),
+    // The owner's PIN: a direct call from his own number plus this PIN, typed
+    // on the keypad, gets the full assistant instead of the secretary. A caller
+    // ID can be faked, the PIN not (Karel, 12. 10. 2026). The owner writes it
+    // here himself; nobody reads it out.
+    owner_pin: z.string().regex(/^\d{6,10}$/, 'PIN má 6 až 10 číslic').optional(),
   })
   .strict();
 

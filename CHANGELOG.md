@@ -5,6 +5,19 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.13] - 2026-10-12
+
+Majitel se s PINem dovolá k Miládce v plném režimu a nastavení má úplnou dokumentaci.
+
+- PIN: přímý hovor z majitelova čísla (`owner` nebo `incoming.owner_lines`) se zeptá na PIN (`owner_pin` v souboru s klíči, 6 až 10 číslic). Se správným PINem mluví majitel s Miládkou jako v `tel_converse`: poznámky, pošta ke čtení, nástroje z nastavení, model a effort hovorů s majitelem. Bez PINu (nic nezmáčkne) vezme hovor sekretářka jako dřív. Tři špatné pokusy hovor ukončí a asistent dostane vzkaz `pin`, deset za den vypne PIN do půlnoci (počítá se v souboru). Číslo volajícího jde podvrhnout, PIN ne (Karel). Hlídač hlásí hovor majitele jako vzkaz `majitel`.
+- Nová dokumentace `docs/nastaveni.md`: každý klíč, co dělá, výchozí hodnota a co platí, když chybí. Test při vydání hlídá, že popisuje všechny klíče a výchozí hodnoty souhlasí s programem. Návod pro asistenta na ni odkazuje místo vlastních tabulek (Karel: výchozí hodnoty nebyly jasné).
+- Testy a návod bez skutečných telefonních čísel.
+
+### Při aktualizaci
+
+- Nastavení se nemění. PIN je vypnutý, dokud si ho majitel nezapíše do souboru s klíči sám (návod, Část D, Majitel volá sám): řekni mu o něm jednou větou a nech ho rozhodnout. Jeho PIN nikdy nečti ani nevypisuj.
+- Službu příchozích hovorů po aktualizaci restartuj (`systemctl --user restart mcp-phone-prichozi`).
+
 ## [0.3.12] - 2026-10-12
 
 Sekretářka odpovídá rychleji a loučí se krátce, každý druh hovoru může mít vlastní model a effort a služba si změněné nastavení načte sama.

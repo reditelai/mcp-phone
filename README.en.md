@@ -10,13 +10,15 @@ An MCP server that lets an assistant phone you and read a message out loud. It i
 - **Calls only where it may:** you, people you store (only when you ask), and another number only when you approve each call with a click.
 - **Enforces its own limits**, not just the assistant's instructions: quiet hours (22:00-07:00 by default), a daily call limit and the message length. No e-mail or message from a stranger can make it call.
 - **Conversation (advanced):** she calls you and you can talk to her; she answers from your notes. On your instruction she also calls someone else and agrees one thing with them, a meeting time say; you confirm that call with a click and she has no access to your notes or mail in it. Twilio has to reach the machine during the call: tested on a server with a domain, on a normal computer only through Cloudflare's test tunnel.
-- **Incoming calls (server only):** when you don't pick up, your carrier forwards the call and Miládka takes a message.
+- **Incoming calls (server only):** when you don't pick up, your carrier forwards the call and Miládka takes a message. When you call her yourself from your own number and type your PIN, you talk to her as in a conversation, with access to your notes.
 
 ## Installation
 
 The easiest way is to tell Miládka: "Install the phone add-on." She follows the [assistant guide](docs/pro-asistenta.md) (in Czech) and walks you through creating the Twilio account.
 
 The released server starts only from Miládka's add-on folder (`.addons/mcp-phone/`) in a folder that has `.miladka/VERSION`. Anywhere else it does not start and points to miladka.cz.
+
+What each setting does and what applies when you leave it out: [phone settings](docs/nastaveni.md) (in Czech).
 
 ## License
 

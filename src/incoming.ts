@@ -205,6 +205,23 @@ export function addPinFailure(config: Config): boolean {
   return pinLocked(config);
 }
 
+/** The holiday in force today (until its last day, inclusive), or null. */
+export function onVacation(config: Config): NonNullable<Config['settings']['incoming']['vacation']> | null {
+  const vacation = config.settings.incoming.vacation;
+  return vacation !== undefined && today(config) <= vacation.until ? vacation : null;
+}
+
+/** The secretary's task while the owner is away: no promise of a quick call back. */
+export function vacationTask(task: string, vacation: NonNullable<Config['settings']['incoming']['vacation']>): string {
+  const extra = [
+    `The owner is on holiday until ${vacation.until} (the caller already heard it in the greeting). Do not say or suggest that he will call back soon; say he will get the message and get back to them after the holiday.`,
+    vacation.substitute !== undefined
+      ? `When the caller says it is urgent or asks whom to turn to, tell them, in your own words and only this: ${vacation.substitute}`
+      : 'Nobody stands in for him; when it is urgent, take the message and say you will pass it on as urgent.',
+  ];
+  return `${task} ${extra.join(' ')}`;
+}
+
 /** What is wrong with the PIN in the keys file, or null. A wrong one turns off only the PIN, not the service. */
 export function pinProblem(pin: string): string | null {
   return /^\d{4,10}$/.test(pin) ? null : 'PIN v souboru s klíči nemá 4 až 10 číslic';
@@ -466,7 +483,8 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
       }
       const callee: Callee = { number: from, name: `příchozí ${from || 'neznámé číslo'}`, owner: false, incoming: true };
       log(`hovor od ${from}${forwardedFrom ? ` (přesměrováno z ${forwardedFrom})` : ''}`);
-      response.end(connect(sid, from, forwardedFrom, callee, incoming.greeting, incoming.task));
+      const away = onVacation(config);
+      response.end(connect(sid, from, forwardedFrom, callee, away?.greeting ?? incoming.greeting, away === null ? incoming.task : vacationTask(incoming.task, away)));
     });
   });
 

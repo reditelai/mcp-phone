@@ -22,7 +22,7 @@ import { registerCallTools } from './tools/call.js';
 import { registerConverseTool, registerConverseWithTool } from './tools/converse.js';
 import { registerReloadTool } from './tools/reload.js';
 import { registerStatusTool } from './tools/status.js';
-import { incomingBase, incomingProblems, pinProblem, serve, waitForMessages, WAIT_EXIT } from './incoming.js';
+import { incomingBase, incomingProblems, onVacation, pinProblem, serve, waitForMessages, WAIT_EXIT } from './incoming.js';
 import { accountBalance, countCallsSince, findNumber, setVoiceUrl, usageOn } from './twilio.js';
 
 const NAME = 'mcp-phone';
@@ -159,7 +159,9 @@ async function checkIncoming(config: Config): Promise<number> {
         : `tahák ${hints} slov se NEPOSÍLÁ: funguje jen s rozpoznáváním Deepgram`;
   const pin = config.keys.owner_pin;
   const pinState = pin === undefined ? 'bez PINu majitele' : pinProblem(pin) === null ? 'PIN majitele nastavený' : `POZOR: ${pinProblem(pin)}, přímé hovory majitele se pokládají`;
-  process.stdout.write(`ok: příchozí hovory připravené, ${settings.incoming.enabled ? 'zapnuté' : 'vypnuté (záznamník)'}, ${filter}, ${cheat}, ${pinState}, strop ${settings.incoming.max_minutes} min. Záložní hlášku v Twiliu (TwiML Bin) ověř poslechem, odsud ji neslyším.\n`);
+  const away = onVacation(config);
+  const vacation = away !== null ? `dovolená do ${away.until}` : settings.incoming.vacation !== undefined ? `dovolená skončila ${settings.incoming.vacation.until}` : 'bez dovolené';
+  process.stdout.write(`ok: příchozí hovory připravené, ${settings.incoming.enabled ? 'zapnuté' : 'vypnuté (záznamník)'}, ${filter}, ${cheat}, ${pinState}, ${vacation}, strop ${settings.incoming.max_minutes} min. Záložní hlášku v Twiliu (TwiML Bin) ověř poslechem, odsud ji neslyším.\n`);
   return 0;
 }
 

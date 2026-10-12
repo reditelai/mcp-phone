@@ -5,6 +5,19 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.19] - 2026-10-12
+
+Režim dovolená: volající se hned dozví, že je majitel pryč, a sekretářka vezme vzkaz.
+
+- Nové nastavení `incoming.vacation` (`until`, `greeting`, volitelně `substitute` a `report`). Do posledního dne dovolené sekretářka zdraví textem o dovolené, neslibuje rychlé zavolání zpět a na naléhavé věci řekne, kdo zastupuje. Po posledním dni se sama vrátí k běžnému pozdravu. Majitel na dobu dovolené přesměruje všechny hovory (`**21*`), takže je sekretářka bere hned (Karel).
+- `report`: vzkazy majiteli hned (`now`, výchozí), nebo do denního přehledu s naléhavými hned (`daily`).
+- `--check` ukáže, jestli platí dovolená a do kdy.
+
+### Při aktualizaci
+
+- Nastavení se nemění. Majiteli můžeš jednou větou říct, že před dovolenou stačí napsat, do kdy je pryč.
+- Službu příchozích hovorů po aktualizaci restartuj (`systemctl --user restart mcp-phone-prichozi`).
+
 ## [0.3.18] - 2026-10-12
 
 Sekretářka má výchozí effort Claude Code a konec věty pozná automatikou Twilia.

@@ -138,6 +138,25 @@ export const incomingSchema = z
     // cost) and only reported. Unset = every call (Karel, 9. 10. 2026).
     owner_lines: z.array(phoneNumber).min(1).optional(),
     max_minutes: z.number().int().min(1).max(10).default(3),
+    // Holiday: until the given day (inclusive, in timezone) the secretary
+    // greets with this text and says the owner is away; afterwards the usual
+    // greeting comes back on its own. The owner forwards all calls for the
+    // time, so whoever calls hears it at once (Karel, 12. 10. 2026).
+    // substitute: whom to call in urgent matters, said only when asked or urgent.
+    // report: messages to the owner at once, or in the daily brief (urgent ones at once).
+    vacation: z
+      .object({
+        until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'datum ve tvaru RRRR-MM-DD'),
+        greeting: z
+          .string()
+          .min(10)
+          .max(300)
+          .refine((text) => /\bAI\b/.test(text), 'pozdrav na dovolenou musí říct, že hovor bere AI asistentka (slovo „AI")'),
+        substitute: z.string().min(5).max(300).optional(),
+        report: z.enum(['now', 'daily']).default('now'),
+      })
+      .strict()
+      .optional(),
     // Silence after which Twilio takes what the caller said as finished. People
     // leaving a message pause over two seconds between sentences; with the
     // default the secretary kept starting to answer and being cut off; 2.5 s

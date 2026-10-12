@@ -90,3 +90,14 @@ test('a PIN has four to ten digits, a wrong one does not stop the service', asyn
   const keys = { account_sid: 'AC' + '0'.repeat(32), api_key: 'SK' + '0'.repeat(32), api_secret: 'x'.repeat(32) };
   assert.ok(keysSchema.safeParse({ ...keys, owner_pin: '482' }).success);
 });
+
+test('on holiday the secretary greets with the holiday text until its last day', async () => {
+  const { onVacation, vacationTask } = await import('../dist/incoming.js');
+  const day = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Prague' }).format(new Date());
+  const c = (until) => ({ settings: { timezone: 'Europe/Prague', incoming: { vacation: { until, greeting: 'Dobrý den, AI asistentka. Je na dovolené.', report: 'now' } } } });
+  assert.ok(onVacation(c(day)) !== null);
+  assert.equal(onVacation(c('2020-01-01')), null);
+  assert.equal(onVacation({ settings: { timezone: 'Europe/Prague', incoming: {} } }), null);
+  assert.match(vacationTask('Take a message.', c(day).settings.incoming.vacation), /holiday until/);
+  assert.match(vacationTask('x', { until: day, greeting: 'g', substitute: 'Volejte Filipa.', report: 'now' }), /Volejte Filipa/);
+});

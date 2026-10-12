@@ -30,7 +30,8 @@ Když server ještě nainstalovaný není, čteš tenhle soubor nejspíš z GitH
 5. **Klíče od Twilia nechtěj do chatu.** Co se napíše do rozhovoru, zůstane v přepisu. Klíče vloží uživatel sám do souboru v editoru (krok 6). Když je do chatu přesto napíše, viz „Klíč skončil v chatu".
 6. **Soubor s klíči (`hesla.json`) nikdy nečti** - ani nástrojem na čtení souborů, ani `cat`. Jestli jsou klíče vyplněné a fungují, řekne kontrola z kroku 7. Nastavení (`system/phone.json`) klíče nemá, to čti a upravuj běžně.
 7. **Složku `.miladka/secrets/` vynech i při hledání** (`grep -r --exclude-dir=secrets`).
-8. **Automatický režim oprávnění může některé kroky zablokovat**, typicky zápis do `.miladka/secrets/` nebo kopírování programu. Řekni to uživateli na začátku. Když se to stane, neobcházej to jinou cestou: požádej ho o dočasné přepnutí na ruční schvalování (Accept edits nestačí, kroky 3 a 6 jsou příkazy), krok dokonči a pak ať režim vrátí.
+8. **Na co se ptáš a co uděláš sama.** Ptáš se jen na volby uživatele: jeho číslo, kdy mu volat sama a klidné hodiny (krok 5), další lidi a volání na jiná čísla, znění pozdravů, a u sekretářky dovolenou a PIN (ten si zapíše sám). Ke každé volbě dej doporučení. Všechno ostatní uděláš sama, bez ptaní, přesně podle návodu: stažení a ověření, zápis nastavení, `.mcp.json`, kontrola, hooky, služba a zápis instalace. Uživateli jen řekni předem, co uvidí a co má udělat. Nepiš vlastní skripty ani jiná řešení, než návod předepisuje, a neslibuj, co jsi neověřila; když něco návod neumí, řekni to (Karlův test 13. 10. 2026).
+9. **Automatický režim oprávnění může některé kroky zablokovat**, typicky zápis do `.miladka/secrets/` nebo kopírování programu. Řekni to uživateli na začátku. Když se to stane, neobcházej to jinou cestou: požádej ho o dočasné přepnutí na ruční schvalování (Accept edits nestačí, kroky 3 a 6 jsou příkazy), krok dokonči a pak ať režim vrátí.
 
 ### Klíč skončil v chatu
 
@@ -174,7 +175,7 @@ Do `.mcp.json` v kořeni vaultu přidej server `phone` vedle stávajících (sou
 }
 ```
 
-U přenosného Node plná cesta k `node.exe` v `command`. Cesty s obyčejnými lomítky. Pak nová konverzace; Claude Code se zeptá, jestli projektový server `phone` povolit - řekni uživateli předem, ať povolí. Ve `/mcp` má být `phone` připojený a ty vidíš nástroje `tel_call`, `tel_call_number`, `tel_status`, `tel_reload_config`.
+U přenosného Node plná cesta k `node.exe` v `command`. Cesty s obyčejnými lomítky. Pak nová konverzace; Claude Code se zeptá, jestli projektový server `phone` povolit - řekni uživateli předem, ať povolí. V nové konverzaci ověř sama, že vidíš nástroje `tel_call`, `tel_call_number`, `tel_status`, `tel_reload_config`. Uživatele o `/mcp` nežádej, v aplikaci Claude nefunguje.
 
 ## Krok 9 - Zkušební hovor
 
@@ -280,7 +281,7 @@ Nastavení `system/phone.json` a záznam v `.mcp.json` přijdou zálohou, progra
 | `Twilio refused (code 21210)` nebo `21212` | Číslo `from` nepatří k účtu nebo je špatně zapsané. Ověř v konzoli Twilia (Active numbers). |
 | `twilio_auth` | Klíč neplatí. Nový klíč (krok 4, bod 2), soubor (krok 6), `tel_reload_config`. |
 | `trial accounts have limited parameter access` | Účet je pořád zkušební. Ať ho převede na placený (Upgrade v konzoli). |
-| Server v `/mcp` nenaběhne | Spusť kontrolu z kroku 7, vypíše důvod. |
+| Server nenaběhne (nástroje `tel_...` chybí) | Spusť kontrolu z kroku 7, vypíše důvod. |
 
 ---
 

@@ -5,6 +5,17 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.21] - 2026-10-13
+
+Návod: připojení serveru ověřuje asistent sám a ptá se jen na volby uživatele.
+
+- Návod, zásada 8: „Na co se ptáš a co uděláš sama“, stejně jako u ostatních doplňků (Karlův test 13. 10. 2026).
+- Návod: připojení serveru ověřuje asistent sám podle nástrojů, uživatele nežádá o `/mcp`: v aplikaci Claude ten příkaz nefunguje, jen v terminálu (Karel 13. 10. 2026).
+
+### Při aktualizaci
+
+- Nastavení se nemění.
+
 ## [0.3.20] - 2026-10-12
 
 Automatická hláška operátora už nedrží sekretářku v hovoru.

@@ -234,7 +234,7 @@ export const keysSchema = z
     // on the keypad, gets the full assistant instead of the secretary. A caller
     // ID can be faked, the PIN not (Karel, 12. 10. 2026). The owner writes it
     // here himself; nobody reads it out.
-    owner_pin: z.string().regex(/^\d{6,10}$/, 'PIN má 6 až 10 číslic').optional(),
+    owner_pin: z.string().regex(/^\d{4,10}$/, 'PIN má 4 až 10 číslic').optional(),
   })
   .strict();
 

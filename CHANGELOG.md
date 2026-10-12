@@ -5,6 +5,18 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.15] - 2026-10-12
+
+PIN stačí čtyřmístný a služba mluví jazykem nastavení.
+
+- `owner_pin` má 4 až 10 číslic místo 6 až 10. S deseti pokusy za den a podvrženým číslem navíc to stačí (Karel).
+- Výzva k PINu, rozloučení, poděkování po záznamníku a věta při překročení délky hovoru zní podle `language`: `cs-…` česky, jinak anglicky. Dosud byly vždy česky.
+
+### Při aktualizaci
+
+- Nastavení se nemění.
+- Službu příchozích hovorů po aktualizaci restartuj (`systemctl --user restart mcp-phone-prichozi`).
+
 ## [0.3.14] - 2026-10-12
 
 Model a effort hovorů s majitelem, s jinými a sekretářky jsou nezávislé, žádný nepřebírá nastavení jiného.

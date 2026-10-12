@@ -215,10 +215,30 @@ function pinTwiml(config: Config, base: string, pin: string, text: string): stri
 
 /** What a caller gets when the secretary is off: a short message and the beep. */
 export function voicemailTwiml(config: Config): string {
-  return twiml(`${say(config, config.settings.incoming.voicemail_text)}<Record maxLength="120" playBeep="true" timeout="5"/>${say(config, 'Děkuji, na shledanou.')}`);
+  return twiml(`${say(config, config.settings.incoming.voicemail_text)}<Record maxLength="120" playBeep="true" timeout="5"/>${say(config, texts(config).thanks)}`);
 }
 
-const CLOSING = 'Omlouvám se, už musím končit. Vzkaz předám. Na shledanou.';
+/** What the service itself says, by the language of the settings (until 0.3.15 always Czech). */
+const TEXTS = {
+  cs: {
+    pin: 'Zadej PIN.',
+    again: 'To nesedí. Zadej PIN znovu.',
+    bye: 'Na shledanou.',
+    thanks: 'Děkuji, na shledanou.',
+    closing: 'Omlouvám se, už musím končit. Vzkaz předám. Na shledanou.',
+  },
+  en: {
+    pin: 'Enter your PIN.',
+    again: 'That is not right. Enter your PIN again.',
+    bye: 'Goodbye.',
+    thanks: 'Thank you, goodbye.',
+    closing: 'I am sorry, I have to end the call now. I will pass the message on. Goodbye.',
+  },
+};
+
+export function texts(config: Config): (typeof TEXTS)['cs'] {
+  return config.settings.language.toLowerCase().startsWith('cs') ? TEXTS.cs : TEXTS.en;
+}
 
 /** Runs until stopped. */
 export async function serve(config: Config, configPath?: string): Promise<void> {
@@ -401,7 +421,7 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
       // A direct call from the owner's own number first asks for the PIN;
       // without it (no keys pressed) the secretary takes it as for anyone.
       if (url === `${prefix}/voice` && pin !== undefined && forwardedFrom === '' && ownerLine(config, from) && !pinLocked(config)) {
-        response.end(pinTwiml(config, base, pin, 'Zadej PIN.'));
+        response.end(pinTwiml(config, base, pin, texts(config).pin));
         return;
       }
       if (url === `${prefix}/pin`) {
@@ -415,11 +435,11 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
           const locked = addPinFailure(config);
           log(`hovor od ${from}: špatný PIN (${tries}. pokus v hovoru)`);
           if (tries < PIN_TRIES_PER_CALL && !locked) {
-            response.end(pinTwiml(config, base, pin, 'To nesedí. Zadej PIN znovu.'));
+            response.end(pinTwiml(config, base, pin, texts(config).again));
             return;
           }
           pinTries.delete(sid);
-          response.end(twiml(`${say(config, 'Na shledanou.')}<Hangup/>`));
+          response.end(twiml(`${say(config, texts(config).bye)}<Hangup/>`));
           enqueue(config, { druh: 'pin', cas: new Date().toISOString(), od: from, presmerovano_z: '', delka_s: 0, soubor: null });
           if (locked) log('PIN: dnes příliš mnoho špatných pokusů, do zítřka vypnutý');
           return;
@@ -521,10 +541,11 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
         }
         // The secretary is short (Karel: "klidně přísnější, 2-3 min"); the owner's own call is as long as one Miládka places.
         limit = setTimeout(() => {
-          ws.send(JSON.stringify({ type: 'text', token: CLOSING, last: true }));
-          call.transcript.push({ who: 'assistant', text: CLOSING });
+          const closing = texts(config).closing;
+          ws.send(JSON.stringify({ type: 'text', token: closing, last: true }));
+          call.transcript.push({ who: 'assistant', text: closing });
           call.endedBy = 'time_limit';
-          setTimeout(() => ws.send(JSON.stringify({ type: 'end' })), speakingMs(CLOSING));
+          setTimeout(() => ws.send(JSON.stringify({ type: 'end' })), speakingMs(closing));
         }, (call.callee.owner ? conv.max_minutes : incoming.max_minutes) * 60_000);
       } else if (message['type'] === 'prompt' && message['last'] === true && mine) {
         const text = String(message['voicePrompt'] ?? '').trim();

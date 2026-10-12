@@ -487,10 +487,10 @@ Bez filtru sekretářka vezme každý hovor, který na číslo u Twilia přijde.
 
 Majitel může zavolat přímo na číslo u Twilia ze svého čísla, vyťukat PIN a mluvit s Miládkou v plném režimu jako v hovoru, který mu dá `tel_converse`: poznámky, pošta ke čtení, nástroje z `conversation.allowed_tools`, model a effort hovorů s majitelem. Číslo volajícího jde podvrhnout, PIN ne (Karel 12. 10. 2026).
 
-**Zapnutí:** PIN si majitel napíše **sám** do souboru s klíči jako řádek `"owner_pin": "…"`, 6 až 10 číslic (krok 6, editor). Ty ho nikdy nevymýšlíš, nečteš, nevypisuješ a neptáš se na něj; když ti ho majitel napíše do chatu, postupuj jako u klíče v chatu (Zásady). Bez řádku `owner_pin` je funkce vypnutá a přímý hovor z jeho čísla bere sekretářka jako dřív.
+**Zapnutí:** PIN si majitel napíše **sám** do souboru s klíči jako řádek `"owner_pin": "…"`, 4 až 10 číslic (krok 6, editor). Ty ho nikdy nevymýšlíš, nečteš, nevypisuješ a neptáš se na něj; když ti ho majitel napíše do chatu, postupuj jako u klíče v chatu (Zásady). Bez řádku `owner_pin` je funkce vypnutá a přímý hovor z jeho čísla bere sekretářka jako dřív.
 
 **Jak se to chová:**
-- Přímý hovor z majitelova čísla (`owner` nebo `owner_lines`, ne přesměrovaný): služba řekne „Zadej PIN.“ a čeká na klávesy.
+- Přímý hovor z majitelova čísla (`owner` nebo `owner_lines`, ne přesměrovaný): služba řekne „Zadej PIN.“ (anglicky „Enter your PIN.“) a čeká na klávesy.
 - Správný PIN: plný režim. Hovor trvá nejvýš `conversation.max_minutes`.
 - Majitel nic nezmáčkne: sekretářka jako pro kohokoli (tak jde sekretářka dál zkoušet z vlastního čísla).
 - Špatný PIN: může to zkusit znovu, po třech špatných v jednom hovoru služba zavěsí a ty dostaneš vzkaz `pin`. Po deseti špatných za den je PIN do půlnoci vypnutý (počítá se v souboru, restart to nevynuluje) a přímý hovor z jeho čísla bere sekretářka.

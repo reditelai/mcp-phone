@@ -29,7 +29,7 @@
 | `recipients` | `{}` | Další lidé, které smí zavolat, jméno → číslo, jen na majitelův pokyn a jen s textem, který zadá. Prázdné znamená nikomu, ne komukoli. Jméno `owner` je vyhrazené. |
 | `call_other_numbers` | `false` | `true`: na majitelův pokyn smí volat i na číslo, které není v nastavení. Každý takový hovor majitel potvrdí kliknutím, v každém režimu oprávnění. |
 | `voice` | `"ElevenLabs.bF7C2fCv7Zf30iT84wZ1"` | Hlas vzkazů i rozhovorů (ženský, česky). Náhradní ženské hlasy, kdyby přestal fungovat: `ElevenLabs.7JbZPqJGWUfXXBim0T8U`, `ElevenLabs.OAAjJsQDvpg3sVjiLgyl`, nakonec `Google.cs-CZ-Wavenet-B`. Vybírá se poslechem v telefonu. |
-| `language` | `"cs-CZ"` | Jazyk hlasu a rozpoznávání řeči. Podle něj server mluví česky nebo anglicky (`en-…`). |
+| `language` | `"cs-CZ"` | Jazyk hlasu a rozpoznávání řeči. Podle něj mluví i sama služba (výzva k PINu, rozloučení, záznamník): `cs-…` česky, cokoli jiného anglicky. |
 | `quiet_hours` | `{"from":"22:00","to":"07:00"}` | Kdy nevolat. `null` = kdykoli. |
 | `quiet_hours_mode` | `"never"` | Co v klidných hodinách: `never` nevolá vůbec, `urgent_only` projde jen naléhavý hovor majiteli. |
 | `timezone` | `"Europe/Prague"` | Časové pásmo klidných hodin, data v přepisech a denního stropu. |
@@ -98,4 +98,4 @@ Nic z toho nepatří do `system/phone.json`. Hodnoty se nikdy nečtou nahlas, ne
 | `api_secret` | povinné | Tajná část API klíče. |
 | `anthropic_api_key` | nenastaveno | Hovorová relace pak platí z tohoto klíče Anthropicu místo předplatného Claude. |
 | `incoming_secret` | nenastaveno | Tajná část adresy, na kterou Twilio posílá příchozí hovory. Zapíše ji `--setup-incoming`, nikdo ji nečte. Bez ní služba příchozích hovorů nenaběhne. |
-| `owner_pin` | nenastaveno | PIN majitele, 6 až 10 číslic. Přímý hovor z majitelova čísla se na něj zeptá; se správným PINem mluví majitel s Miládkou v plném režimu (poznámky, pošta ke čtení, nástroje). Bez PINu vezme hovor sekretářka. Tři špatné pokusy ukončí hovor a asistent dostane zprávu, deset za den vypne PIN do půlnoci. Majitel ho píše do souboru sám. Nenastaveno = funkce vypnutá. |
+| `owner_pin` | nenastaveno | PIN majitele, 4 až 10 číslic. Přímý hovor z majitelova čísla se na něj zeptá; se správným PINem mluví majitel s Miládkou v plném režimu (poznámky, pošta ke čtení, nástroje). Bez PINu vezme hovor sekretářka. Tři špatné pokusy ukončí hovor a asistent dostane zprávu, deset za den vypne PIN do půlnoci. Majitel ho píše do souboru sám. Nenastaveno = funkce vypnutá. |

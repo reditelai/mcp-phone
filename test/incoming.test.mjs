@@ -63,10 +63,27 @@ test('the PIN: only the owner\'s numbers, exact digits, ten wrong tries a day sw
   assert.ok(ownerLine(c, '602123456'));
   assert.ok(!ownerLine(c, '+420777000111'));
   assert.ok(pinMatches('482915', '482915'));
+  assert.ok(pinMatches('4829', '4829'));
   assert.ok(!pinMatches('482915', '48291'));
   assert.ok(!pinMatches('482915', '482916'));
   assert.ok(!pinLocked(c));
   for (let i = 1; i < PIN_FAILURES_PER_DAY; i++) assert.equal(addPinFailure(c), false);
   assert.equal(addPinFailure(c), true);
   assert.ok(pinLocked(c));
+});
+
+test('the service speaks the language of the settings', async () => {
+  const { texts } = await import('../dist/incoming.js');
+  assert.equal(texts({ settings: { language: 'cs-CZ' } }).pin, 'Zadej PIN.');
+  assert.equal(texts({ settings: { language: 'en-GB' } }).pin, 'Enter your PIN.');
+  const xml = voicemailTwiml({ settings: { voice: 'x', language: 'en-US', incoming: { voicemail_text: 'Please leave a message.' } } });
+  assert.match(xml, /Thank you, goodbye/);
+});
+
+test('a PIN has four to ten digits', async () => {
+  const { keysSchema } = await import('../dist/config.js');
+  const keys = { account_sid: 'AC' + '0'.repeat(32), api_key: 'SK' + '0'.repeat(32), api_secret: 'x'.repeat(32) };
+  assert.ok(keysSchema.safeParse({ ...keys, owner_pin: '4829' }).success);
+  assert.ok(!keysSchema.safeParse({ ...keys, owner_pin: '482' }).success);
+  assert.ok(!keysSchema.safeParse({ ...keys, owner_pin: '48a9' }).success);
 });

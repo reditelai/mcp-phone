@@ -416,14 +416,14 @@ export function writeTranscript(config: Config, vaultDir: string, context: strin
 }
 
 /**
- * Model and effort by the kind of call: the secretary (incoming), a call to
- * someone else (conversation.others) and a call with the owner
- * (conversation), each falling back to the owner's (Karel, 12. 10. 2026).
+ * Model and effort by the kind of call, each set on its own: the secretary
+ * (incoming), a call to someone else (conversation.others) and a call with
+ * the owner (conversation) (Karel, 12. 10. 2026).
  */
 export function callModel(config: Config, callee: Callee): { model: string; effort: Config['settings']['conversation']['effort'] } {
   const conv = config.settings.conversation;
-  const own = callee.incoming ? config.settings.incoming : callee.owner ? undefined : conv.others;
-  return { model: own?.model ?? conv.model, effort: own?.effort ?? conv.effort };
+  const own = callee.incoming ? config.settings.incoming : callee.owner ? conv : conv.others;
+  return { model: own.model, effort: own.effort };
 }
 
 /** What the bridge says on its own while a tool runs, by language of the call. */

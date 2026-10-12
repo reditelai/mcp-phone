@@ -51,16 +51,17 @@ export const conversationSchema = z
     // The Claude Code executable the call session runs on. The SDK's own copy
     // is hundreds of megabytes per system, so the server uses the installed one.
     claude_path: z.string().min(1).default('claude'),
-    // Model and effort of calls with the owner, and of the other kinds unless
-    // they set their own (others here, the secretary in incoming).
+    // Model and effort of calls with the owner, whoever dialled. The other two
+    // kinds have their own (others here, the secretary in incoming) and take
+    // nothing from these: trying Opus with the owner must not slow down the
+    // secretary (Karel, 12. 10. 2026).
     model: z.string().min(1).default('sonnet'),
     // Reasoning effort of the call session. Not set = Claude Code's default for
     // the model; low makes a slower model answer sooner (comparing Sonnet and
     // Opus on the phone, Karel 10. 10. 2026).
     effort: EFFORT.optional(),
-    // Calls to someone else on the owner's behalf: each kind of call can think
-    // differently (Karel, 12. 10. 2026).
-    others: z.object({ model: z.string().min(1).optional(), effort: EFFORT.optional() }).strict().optional(),
+    // Calls to someone else on the owner's behalf.
+    others: z.object({ model: z.string().min(1).default('sonnet'), effort: EFFORT.optional() }).strict().prefault({}),
     // ElevenLabs voice settings for conversations, speed_stability_similarity.
     // Higher stability keeps the voice steadier between sentences: with the
     // ElevenLabs defaults Karel heard the loudness change (9. 10. 2026), with
@@ -146,8 +147,8 @@ export const incomingSchema = z
     // the pieces get one answer and nothing is heard of the started ones.
     speech_timeout_ms: z.number().int().min(600).max(5000).default(1000),
     // The secretary only takes a message: low effort answers about as well and
-    // sooner. Model not set = conversation.model.
-    model: z.string().min(1).optional(),
+    // sooner. Her own model, not the owner's.
+    model: z.string().min(1).default('sonnet'),
     effort: EFFORT.default('low'),
     // For tuning only: records each call on two channels, measures from the
     // recording how long the caller waits for every answer, writes it into the

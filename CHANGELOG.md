@@ -5,6 +5,17 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.14] - 2026-10-12
+
+Model a effort hovorů s majitelem, s jinými a sekretářky jsou nezávislé, žádný nepřebírá nastavení jiného.
+
+- `conversation.model` a `conversation.effort` platí jen pro hovory s majitelem (Miládka volá jemu, nebo on jí s PINem). Hovory s jinými mají `conversation.others` (výchozí model Sonnet, effort výchozí Claude Code), sekretářka `incoming.model` (výchozí Sonnet) a `incoming.effort` (výchozí `low`). V 0.3.12 a 0.3.13 si je převzaly od majitele, když neměly vlastní: Opus na zkoušku v hovorech s majitelem by zpomalil i sekretářku (Karel).
+
+### Při aktualizaci
+
+- Když má `system/phone.json` jiný `conversation.model` nebo `conversation.effort` než výchozí a majitel ho chtěl i pro sekretářku nebo hovory s jinými, zapiš ho se souhlasem i do `incoming` nebo `conversation.others`. Jinak se nastavení nemění.
+- Službu příchozích hovorů po aktualizaci restartuj (`systemctl --user restart mcp-phone-prichozi`).
+
 ## [0.3.13] - 2026-10-12
 
 Majitel se s PINem dovolá k Miládce v plném režimu a nastavení má úplnou dokumentaci.

@@ -145,14 +145,16 @@ export const incomingSchema = z
     // a recording 12. 10. 2026: Twilio adds about 0.6 s of its own on top, so
     // 2 s meant over 4 s of silence; 1 s splits a message at every breath, but
     // the pieces get one answer and nothing is heard of the started ones.
-    // null = Twilio's own end-of-speech detection, as in the owner's calls:
-    // 0.5 to 1 s sooner, but it cuts into pauses more (12. 10. 2026, to try).
-    speech_timeout_ms: z.number().int().min(600).max(5000).nullable().default(1000),
-    // The secretary only takes a message: low effort answers about as well and
-    // sooner. Her own model, not the owner's. null = Claude Code's default
-    // effort, as in the owner's calls (Karel, 12. 10. 2026, comparing).
+    // null (default) = Twilio's own end-of-speech detection, as in the owner's
+    // calls: 0.5 to 1 s sooner. It cuts into pauses more, but the server joins
+    // the pieces; Karel's test trying to break it held, and a natural call
+    // sounded much better (12. 10. 2026).
+    speech_timeout_ms: z.number().int().min(600).max(5000).nullable().default(null),
+    // The secretary's own model and effort, not the owner's. null (default) =
+    // Claude Code's default effort: low was not faster in the test calls
+    // (first word 1.44 s against 1.42 s) and thinks less (12. 10. 2026).
     model: z.string().min(1).default('sonnet'),
-    effort: EFFORT.nullable().default('low'),
+    effort: EFFORT.nullable().default(null),
     // For tuning only: records each call on two channels, measures from the
     // recording how long the caller waits for every answer, writes it into the
     // transcript and deletes the recording from Twilio. The transcript timings

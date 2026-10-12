@@ -5,6 +5,18 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.18] - 2026-10-12
+
+Sekretářka má výchozí effort Claude Code a konec věty pozná automatikou Twilia.
+
+- Výchozí `incoming.effort` je `null` (výchozí Claude Code) místo `low`: v hovorech nebyl `low` rychlejší (první slovo 1,44 s proti 1,42 s) a model s výchozím effortem líp zvládá odbočky volajícího.
+- Výchozí `incoming.speech_timeout_ms` je `null` (automatika Twilia) místo 1000: rozpozná konec věty o 0,5 až 1 s dřív. Zátěžový test s pauzami ustála a plynulý hovor zněl podle Karla výrazně lépe.
+
+### Při aktualizaci
+
+- Když má `system/phone.json` v bloku `incoming` výslovně `effort` `low` nebo `speech_timeout_ms` 1000 a majitel si je nevybral sám, nabídni je smazat, ať platí nové výchozí.
+- Službu příchozích hovorů po aktualizaci restartuj (`systemctl --user restart mcp-phone-prichozi`).
+
 ## [0.3.17] - 2026-10-12
 
 Sekretářce jde nastavit výchozí effort Claude Code.

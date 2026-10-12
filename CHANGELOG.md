@@ -5,6 +5,18 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.20] - 2026-10-12
+
+Automatická hláška operátora už nedrží sekretářku v hovoru.
+
+- Řádek, který druhá strana řekne znovu slovo od slova (aspoň pět slov), se bere jako automatická hláška, třeba „Nezavěšujte prosím, vyčkejte na spojení“: nedostane odpověď a nezruší zavěšení. Když skočila do rozloučení, hovor po něm skončí. Krátké opakování („Haló?“) je dál člověk. Skutečný hovor 12. 10. 2026: volající si dal hovor do čekání, hláška se opakovala každé čtyři vteřiny a sekretářka se dvanáctkrát loučila (Věrka).
+- Zavěšení se v jednom hovoru zruší nejvýš třikrát, pak hovor po rozloučení skončí, ať se do něj mluví cokoli.
+
+### Při aktualizaci
+
+- Nastavení se nemění.
+- Službu příchozích hovorů po aktualizaci restartuj (`systemctl --user restart mcp-phone-prichozi`).
+
 ## [0.3.19] - 2026-10-12
 
 Režim dovolená: volající se hned dozví, že je majitel pryč, a sekretářka vezme vzkaz.

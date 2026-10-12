@@ -69,3 +69,12 @@ test('each kind of call has its own model and effort, none takes the owner\'s', 
   const low = { settings: settingsSchema.parse({ owner: '+420777123456', from: '+420777123457', incoming: { effort: 'low' } }) };
   assert.equal(callModel(low, { owner: false, incoming: true }).effort, 'low');
 });
+
+test('a long line said again is an announcement, a short one is a person', async () => {
+  const { announcementKey } = await import('../dist/conversation.js');
+  assert.equal(announcementKey('Nezavěšujte prosím. Vyčkejte na spojení.'), announcementKey('nezavěšujte prosím, vyčkejte na spojení'));
+  assert.notEqual(announcementKey('Please do not hang up, your call will be answered as soon as possible.'), null);
+  assert.equal(announcementKey('Haló?'), null);
+  assert.equal(announcementKey('Ano, je to všechno.'), null);
+  assert.equal(announcementKey('Ano, je to všechno, díky.'), announcementKey('ano je to všechno díky'));
+});

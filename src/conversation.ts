@@ -275,6 +275,21 @@ export class PendingHangUp {
  */
 const HANG_UP_GRACE_MS = 2_000;
 
+/**
+ * A line the other side says again word for word, at least five words long,
+ * is an announcement (an operator's "please hold"), not a person: it gets no
+ * answer and does not keep the call open. A real call 12. 10. 2026 had the
+ * secretary say goodbye twelve times while a hold message repeated every few
+ * seconds. Short repeats ("Haló?") are a person and still count.
+ */
+export function announcementKey(text: string): string | null {
+  const key = text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  return key.split(' ').length >= 5 ? key : null;
+}
+
+/** After this many called-off hang-ups in one call, the next one ends it whatever comes. */
+export const MAX_CALL_OFFS = 3;
+
 /** Rough time the synthesizer needs to say a text, so a hang-up does not cut the goodbye. */
 export function speakingMs(text: string): number {
   return Math.max(1500, text.length * 70);
@@ -520,6 +535,8 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
     send({ type: 'end' });
   });
   let hangUpCalledOff = false; // the caller spoke before the goodbye was over, until the next turn learns it
+  let callOffs = 0; // hang-ups called off in this call (MAX_CALL_OFFS)
+  const heardLines = new Set<string>(); // the other side's lines so far, for announcements
   let warming = true;
   let ready: () => void = () => {};
   const warmed = new Promise<void>((done) => (ready = done));
@@ -743,7 +760,24 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
       if (!warming && previous > 0) timing(`řádek volajícího ${seconds(previous)} s po předchozím`);
       lastCallerAt = Date.now();
       if (!warming) events.push({ kind: 'prompt', at: lastCallerAt });
-      if (!warming && hangUp.cancel()) hangUpCalledOff = true;
+      const key = warming ? null : announcementKey(said);
+      if (key !== null && heardLines.has(key)) {
+        // An announcement again: no answer. When it cut into the goodbye and
+        // called the hang-up off, the goodbye stands and the call ends.
+        timing('stejná hláška znovu, bez odpovědi');
+        if (hangUpCalledOff) {
+          hangUpCalledOff = false;
+          unheard = null;
+          hangUp.request();
+          hangUp.schedule(1000);
+        }
+        return;
+      }
+      if (key !== null) heardLines.add(key);
+      if (!warming && callOffs < MAX_CALL_OFFS && hangUp.cancel()) {
+        hangUpCalledOff = true;
+        callOffs += 1;
+      }
       // An answer they spoke over: the session learns what of it was heard,
       // so it repeats what matters instead of taking it as said (Karel, 10. 10. 2026).
       let text = said;
@@ -776,7 +810,10 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
       if (!warming) {
         lastCutAt = Date.now();
         unheard = (heard ?? '').trim();
-        if (hangUp.cancel()) hangUpCalledOff = true;
+        if (callOffs < MAX_CALL_OFFS && hangUp.cancel()) {
+          hangUpCalledOff = true;
+          callOffs += 1;
+        }
       }
       if (heard !== undefined && !warming) {
         if (turnText.trim() !== '') {

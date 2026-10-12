@@ -31,6 +31,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import type { Config } from './config.js';
 import { ToolError } from './errors.js';
 import { vaultRoot } from './location.js';
+import type { ServerEvent } from './measure.js';
 import { FINAL, fetchCall, placeTwimlCall, type CallInfo } from './twilio.js';
 
 export interface Line {
@@ -534,8 +535,11 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
   const firstSound = (): void => {
     if (askedAt === null) return;
     timing(`první slovo za ${seconds(askedAt)} s`);
+    events.push({ kind: 'word', at: Date.now() });
     askedAt = null;
   };
+  // The same moments by the clock, for measuring against a recording (incoming.measure_gaps).
+  const events: ServerEvent[] = [];
 
   async function* input(): AsyncGenerator<SDKUserMessage> {
     for (;;) {
@@ -715,6 +719,7 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
 
   return {
     warmed,
+    events,
     attach(socket: WebSocket): void {
       ws = socket;
     },
@@ -725,6 +730,7 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
       // one utterance into pieces (Věrka, 10. 10. 2026).
       if (!warming && previous > 0) timing(`řádek volajícího ${seconds(previous)} s po předchozím`);
       lastCallerAt = Date.now();
+      if (!warming) events.push({ kind: 'prompt', at: lastCallerAt });
       if (!warming && hangUp.cancel()) hangUpCalledOff = true;
       // An answer they spoke over: the session learns what of it was heard,
       // so it repeats what matters instead of taking it as said (Karel, 10. 10. 2026).

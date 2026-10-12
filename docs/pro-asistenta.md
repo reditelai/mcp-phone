@@ -459,6 +459,8 @@ Sekretářka: když majitel nezvedá, operátor hovor přesměruje na číslo u 
    ```
 
    **Čekání na konec věty** (`incoming.speech_timeout_ms`, výchozí `2000`): kolik milisekund ticha Twilio počká, než vezme, co volající řekl, za hotové (600 až 5000). Lidé nechávající vzkaz dělají mezi větami pauzy přes dvě vteřiny. Když sekretářka pořád skáče do řeči, zvyš; když odpovídá pomalu, sniž.
+
+   **Měření prodlev** (`incoming.measure_gaps`, výchozí `false`): jen na ladění, na majitelův pokyn. Hovor se nahraje do dvou stop, po zavěšení služba z nahrávky změří, jak dlouho volající u každé odpovědi čekal (od konce jeho řeči po první zvuk sekretářky), a zapíše to do přepisu řádky `měření:` s rozpadem na Twilio (rozpoznání konce věty), model a hlas. Nahrávku pak z Twilia smaže, nikam ji neukládá. Přepis přijde o pár sekund později než obvykle. Volající o nahrávání neví, proto jen pro zkušební hovory majitele; po ladění vypni.
 2. **Tajná adresa a číslo**: `node .doplnky/mcp-phone/mcp-phone.mjs --setup-incoming --config system/phone.json`. Vygeneruje tajnou část adresy, na kterou Twilio posílá hovory, a zapíše ji do souboru s klíči (`incoming_secret`), ne do nastavení: nastavení se zálohuje do gitu a tajná adresa je jediná ochrana služby. **Nikdy ji nečti ani nevypisuj**, stejně jako klíče. Pak nasměruje číslo v Twiliu na službu. Opakované spuštění tajnou adresu nemění.
 3. **Služba.** Ulož `~/.config/systemd/user/mcp-phone-prichozi.service` (cesty skutečné, absolutní):
    ```

@@ -5,6 +5,16 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.11] - 2026-10-12
+
+Měření, jak dlouho volající čeká na odpověď sekretářky, z nahrávky hovoru (na ladění, výchozí vypnuté).
+
+- Nové nastavení `incoming.measure_gaps` (výchozí vypnuté, jen na ladění): služba hovor nahraje do dvou stop, po zavěšení z nahrávky změří, jak dlouho volající u každé odpovědi čekal, a zapíše to do přepisu s rozpadem na Twilio, model a hlas. Nahrávku pak z Twilia smaže. Časy v přepisu začínají až předáním věty od Twilia, Karel stopkami naměřil mezery 4 až 5 s proti zhruba 2,5 s z časů (12. 10. 2026).
+
+### Při aktualizaci
+
+- Nastavení se nemění. Měření je ve výchozím stavu vypnuté, zapíná se jen na majitelův pokyn ke zkušebním hovorům.
+
 ## [0.3.10] - 2026-10-12
 
 Úprava návodu pro asistenta: lidštější slova a návod číst celý.

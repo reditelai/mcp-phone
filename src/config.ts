@@ -136,6 +136,12 @@ const incomingSchema = z
     // default the secretary kept starting to answer and being cut off; 2.5 s
     // made the gaps feel long, 2 s was right (Karel, 10. 10. 2026).
     speech_timeout_ms: z.number().int().min(600).max(5000).default(2000),
+    // For tuning only: records each call on two channels, measures from the
+    // recording how long the caller waits for every answer, writes it into the
+    // transcript and deletes the recording from Twilio. The transcript timings
+    // start only when Twilio hands over the caller's words; the stopwatch
+    // showed far longer gaps (Karel, 12. 10. 2026).
+    measure_gaps: z.boolean().default(false),
     // The secretary's cheat sheet: names, companies, places and words that come
     // up in the owner's calls, for the speech recognition only (Twilio hints).
     // The secretary herself does not get it: she knows nothing about the

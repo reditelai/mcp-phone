@@ -43,7 +43,8 @@ import {
   type Callee,
   type Line,
 } from './conversation.js';
-import { callParties, deleteRecording, downloadRecording, findNumber, listRecordings } from './twilio.js';
+import { gapLines, readWav, speech, splitChannels } from './measure.js';
+import { callParties, deleteRecording, downloadRecording, downloadRecordingWav, findNumber, listRecordings, recordingStatus, startRecording } from './twilio.js';
 
 /** Base of every address of the service: public_url/prichozi/<secret>. */
 export function incomingBase(config: Config): string | null {
@@ -75,6 +76,20 @@ function queuePath(config: Config): string {
 
 function statePath(config: Config): string {
   return join(dirname(queuePath(config)), 'prichozi-stav.json');
+}
+
+function collected(config: Config): string[] {
+  const state = statePath(config);
+  return existsSync(state) ? ((JSON.parse(readFileSync(state, 'utf8')) as { zpracovane?: string[] }).zpracovane ?? []) : [];
+}
+
+/** A recording the voicemail collector must not take (or has taken). */
+function markCollected(config: Config, sid: string): void {
+  const state = statePath(config);
+  const done = collected(config);
+  done.push(sid);
+  mkdirSync(dirname(state), { recursive: true });
+  writeFileSync(state, JSON.stringify({ zpracovane: done.slice(-500) }, null, 2));
 }
 
 /** One message for the assistant, a line of JSON in the queue file. */
@@ -176,6 +191,8 @@ export async function serve(config: Config): Promise<void> {
     finished: boolean;
     /** The relay connected: the secretary is on the line. */
     connected: boolean;
+    /** A recording for measuring the gaps (incoming.measure_gaps), from when by the server's clock. */
+    recording?: { sid: string; startedAt: number };
   }
   let current: Call | null = null;
 
@@ -197,20 +214,48 @@ export async function serve(config: Config): Promise<void> {
       log(`hovor od ${call.from}: sekretářka se nespojila (${call.endedBy}), uzavřeno po ${seconds} s`);
       return;
     }
-    let file: string | null = null;
+    const deliver = (): void => {
+      let file: string | null = null;
+      try {
+        file = writeTranscript(config, vaultDir, '', call.transcript, call.callee);
+      } catch (error) {
+        log(`přepis se nepodařilo zapsat: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      logCall(config, {
+        who: `${call.from || 'neznámé číslo'}${call.forwardedFrom ? ` (přesměrováno z ${call.forwardedFrom})` : ''}`,
+        kind: 'příchozí',
+        info: { sid: call.sid, status: 'completed', duration_seconds: seconds, started: new Date(call.startedAt).toISOString(), ring_seconds: null },
+        transcript: file,
+      });
+      enqueue(config, { druh: 'rozhovor', cas: new Date(call.startedAt).toISOString(), od: call.from, presmerovano_z: call.forwardedFrom, delka_s: seconds, soubor: file });
+      log(`hovor od ${call.from} skončil (${call.endedBy}), ${seconds} s`);
+    };
+    // The measured gaps go into the transcript before anyone reads it.
+    if (call.recording === undefined) deliver();
+    else void measure(call, call.recording).finally(deliver);
+  };
+
+  /** Gaps from the call's recording into its transcript; the recording leaves Twilio either way. */
+  const measure = async (call: Call, recording: { sid: string; startedAt: number }): Promise<void> => {
     try {
-      file = writeTranscript(config, vaultDir, '', call.transcript, call.callee);
+      const deadline = Date.now() + 90_000;
+      while ((await recordingStatus(keys, recording.sid)) !== 'completed') {
+        if (Date.now() > deadline) throw new Error('nahrávka nebyla do 90 s hotová');
+        await new Promise((wait) => setTimeout(wait, 3000));
+      }
+      const wav = readWav(await downloadRecordingWav(keys, recording.sid));
+      const sides = splitChannels(wav.channels.map((samples) => speech(samples, wav.rate)));
+      if (sides === null) throw new Error(`nahrávka má ${wav.channels.length} stop místo dvou`);
+      const lines = gapLines(sides.caller, sides.assistant, call.session.events, recording.startedAt);
+      for (const text of lines.length > 0 ? lines : ['měření: v nahrávce žádná výměna']) call.transcript.push({ who: 'tool', text });
     } catch (error) {
-      log(`přepis se nepodařilo zapsat: ${error instanceof Error ? error.message : String(error)}`);
+      call.transcript.push({ who: 'tool', text: `měření se nepovedlo: ${error instanceof Error ? error.message : String(error)}` });
     }
-    logCall(config, {
-      who: `${call.from || 'neznámé číslo'}${call.forwardedFrom ? ` (přesměrováno z ${call.forwardedFrom})` : ''}`,
-      kind: 'příchozí',
-      info: { sid: call.sid, status: 'completed', duration_seconds: seconds, started: new Date(call.startedAt).toISOString(), ring_seconds: null },
-      transcript: file,
-    });
-    enqueue(config, { druh: 'rozhovor', cas: new Date(call.startedAt).toISOString(), od: call.from, presmerovano_z: call.forwardedFrom, delka_s: seconds, soubor: file });
-    log(`hovor od ${call.from} skončil (${call.endedBy}), ${seconds} s`);
+    try {
+      await deleteRecording(keys, recording.sid);
+    } catch (error) {
+      log(`měření: nahrávku ${recording.sid} se nepodařilo smazat z Twilia: ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
 
   const server = createServer((request, response) => {
@@ -338,6 +383,17 @@ export async function serve(config: Config): Promise<void> {
         mine = true;
         call.connected = true;
         call.session.attach(ws);
+        if (incoming.measure_gaps) {
+          // The recording's start by our clock: halfway through the request, to a few tenths of a second.
+          const before = Date.now();
+          void startRecording(keys, call.sid)
+            .then((sid) => {
+              // Not voicemail: the collector must leave it alone.
+              markCollected(config, sid);
+              call.recording = { sid, startedAt: (before + Date.now()) / 2 };
+            })
+            .catch((error: unknown) => log(`měření: nahrávání se nespustilo: ${error instanceof Error ? error.message : String(error)}`));
+        }
         // The secretary is short (Karel: "klidně přísnější, 2-3 min").
         limit = setTimeout(() => {
           ws.send(JSON.stringify({ type: 'text', token: CLOSING, last: true }));
@@ -396,13 +452,12 @@ export async function serve(config: Config): Promise<void> {
  */
 export async function collectRecordings(config: Config, log: (line: string) => void): Promise<number> {
   const { settings, keys } = config;
-  const state = statePath(config);
-  const done: string[] = existsSync(state) ? ((JSON.parse(readFileSync(state, 'utf8')) as { zpracovane?: string[] }).zpracovane ?? []) : [];
   let saved = 0;
   for (const recording of await listRecordings(keys)) {
-    if (done.includes(recording.sid)) continue;
+    if (collected(config).includes(recording.sid)) continue;
     const parties = await callParties(keys, recording.call_sid);
-    if (parties.to !== settings.from) continue;
+    // Read again: a measuring recording of a running call is marked meanwhile.
+    if (parties.to !== settings.from || collected(config).includes(recording.sid)) continue;
     const vault = conversationVaultDir(config);
     const dir = resolve(vault, settings.conversation.transcript_dir);
     mkdirSync(dir, { recursive: true });
@@ -421,9 +476,7 @@ export async function collectRecordings(config: Config, log: (line: string) => v
     });
     enqueue(config, { druh: 'zaznamnik', cas: recording.created, od: parties.from, presmerovano_z: parties.forwarded_from, delka_s: recording.duration_seconds, soubor: rel });
     await deleteRecording(keys, recording.sid);
-    done.push(recording.sid);
-    mkdirSync(dirname(state), { recursive: true });
-    writeFileSync(state, JSON.stringify({ zpracovane: done.slice(-500) }, null, 2));
+    markCollected(config, recording.sid);
     saved += 1;
     log(`záznamník: vzkaz od ${parties.from} uložen (${rel})`);
   }

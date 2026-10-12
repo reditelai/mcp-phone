@@ -241,6 +241,24 @@ export async function downloadRecording(keys: Keys, sid: string): Promise<Buffer
   return Buffer.from(await response.arrayBuffer());
 }
 
+/** Starts a two-channel recording of a running call (incoming.measure_gaps); returns its sid. */
+export async function startRecording(keys: Keys, callSid: string): Promise<string> {
+  const body = await request(keys, 'POST', `/Calls/${callSid}/Recordings.json`, { RecordingChannels: 'dual' });
+  return String(body['sid'] ?? '');
+}
+
+/** The recording's status: "completed" once the file is ready. */
+export async function recordingStatus(keys: Keys, sid: string): Promise<string> {
+  return String((await request(keys, 'GET', `/Recordings/${sid}.json`))['status'] ?? '');
+}
+
+export async function downloadRecordingWav(keys: Keys, sid: string): Promise<Buffer> {
+  const auth = 'Basic ' + Buffer.from(`${keys.api_key}:${keys.api_secret}`).toString('base64');
+  const response = await fetch(`${API}/Accounts/${keys.account_sid}/Recordings/${sid}.wav`, { headers: { Authorization: auth }, signal: AbortSignal.timeout(60_000) });
+  if (!response.ok) throw new ToolError('twilio_error', `Twilio did not return recording ${sid} (HTTP ${response.status}).`);
+  return Buffer.from(await response.arrayBuffer());
+}
+
 /** Once saved with the owner, the recording leaves Twilio: a voice message is personal data. */
 export async function deleteRecording(keys: Keys, sid: string): Promise<void> {
   await request(keys, 'DELETE', `/Recordings/${sid}.json`);

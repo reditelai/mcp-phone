@@ -5,6 +5,19 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.22] - 2026-10-13
+
+Sekretářka nezní jako záznamník a jméno volajícího nahlas neopakuje.
+
+- Doporučený pozdrav je krátký a končí otázkou „S kým mluvím?“. S „můžu mu něco vyřídit?“ volající považoval sekretářku za záznamník, namluvil vzkaz a položil (Karlův test 13. 10. 2026). Návod a `docs/nastaveni.md`.
+- Pokyny sekretářky: na jméno odpoví „Děkuji. Karel teď nemůže k telefonu. Co mu mám vyřídit?“ a jméno ani firmu volajícímu nikdy neopakuje: rozpoznávání řeči jména plete a zkomolené jméno zní nedbale. Majitel je má v přepisu (Karel).
+
+### Při aktualizaci
+
+- Když má majitel pozdrav ve starém tvaru („…nemůže k telefonu, můžu mu něco vyřídit?“), navrhni mu nový podle návodu (krátký, se jménem asistentky a otázkou „S kým mluvím?“) a zapiš až po souhlasu.
+- Když má vlastní `incoming.task`, nové pokyny o jménu se ho netýkají: nabídni ho smazat, ať platí vestavěné.
+- Službu příchozích hovorů po aktualizaci restartuj (`systemctl --user restart mcp-phone-prichozi`).
+
 ## [0.3.21] - 2026-10-13
 
 Návod: připojení serveru ověřuje asistent sám a ptá se jen na volby uživatele.

@@ -409,11 +409,11 @@ Sekretářka: když majitel nezvedá, operátor hovor přesměruje na číslo u 
    ```json
    "incoming": {
      "enabled": false,
-     "greeting": "Dobrý den, tady Miládka, AI asistentka Jana Nováka. Jan teď nemůže k telefonu, můžu mu něco vyřídit?",
+     "greeting": "Dobrý den, tady Miládka, Janova AI asistentka. S kým mluvím?",
      "max_minutes": 3
    }
    ```
-   Znění `greeting` navrhni a nech majitele schválit. Musí obsahovat „AI“.
+   Znění `greeting` navrhni a nech majitele schválit. Musí obsahovat „AI“. **Co nejkratší a zakončené otázkou „S kým mluvím?“**, se jménem asistentky a majitele, jako ve vzoru. Volající odpoví jedním slovem, sekretářka hned reaguje a je jasné, že nejde o záznamník. Bez „vzkaz“ a „vyřídit“ v pozdravu: s nimi volající namluví vzkaz a položí, protože si myslí, že mluví se záznamníkem (Karlův test 13. 10. 2026). To, že majitel nemůže k telefonu, řekne sekretářka až ve druhé větě.
 
    **Tahák pro sekretářku** (`incoming.hints`): krátký seznam slov, která rozpoznávání řeči v jeho hovorech uslyší nejčastěji. Sestav ho z vaultu: majitelovo jméno a příjmení, jeho firma, lidé a firmy, které mu volají nebo píšou nejčastěji, místa a názvy, které se u něj opakují. Nejvýš 60 položek, každá krátká, jen slova (žádná čísla, adresy ani poznámky). Ukaž ho majiteli a zapiš až po souhlasu. Dostane ho jen rozpoznávání řeči u Twilia, sekretářka sama ne: nic o majitelových kontaktech neví a nemůže je prozradit. Doplň ho, když majitel řekne, nebo když v přepisu vidíš jméno zkomolené.
    ```json
@@ -458,7 +458,7 @@ Bez filtru sekretářka vezme každý hovor, který na číslo u Twilia přijde.
 ```json
 "incoming": {
   "enabled": true,
-  "greeting": "Dobrý den, tady Miládka, AI asistentka Jana Nováka. Jan teď nemůže k telefonu, můžu mu něco vyřídit?",
+  "greeting": "Dobrý den, tady Miládka, Janova AI asistentka. S kým mluvím?",
   "max_minutes": 3,
   "owner_lines": ["+420777123456", "+420602123456"]
 }

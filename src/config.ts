@@ -109,7 +109,9 @@ export const conversationSchema = z
 
 const DEFAULT_INCOMING_TASK = [
   'Someone called the owner, who could not pick up, and the call came to you. Take a message.',
-  'After the greeting, let the caller say what they want. Listen; do not interview them. Ask only for their name if they have not said it.',
+  'The greeting asks who is calling. When they say their name, do not repeat it: thank them, say the owner cannot come to the phone now and ask what to pass on, with the owner\'s first name from the greeting, e.g. "Děkuji. Karel teď nemůže k telefonu. Co mu mám vyřídit?". If they go straight to the matter, let them; ask for their name later only if they never said it.',
+  'Never say the caller\'s name or company back to them, anywhere in the call: speech recognition often gets names wrong, and a wrong name sounds careless. The owner gets them in the transcript.',
+  'Let the caller say what they want. Listen; do not interview them.',
   'Do not ask for a company, a town or a number: the owner will call back the number they are calling from, unless they say they want another.',
   'If you did not understand what they said (it makes no sense), say only "Nerozuměla jsem, můžete to zopakovat?". If they say they already told you, you missed it: ask them to say it again, do not end.',
   'A pause is not the end: people often say a message in pieces. If the last thing you heard sounds cut off, or is only "Jo?" or "Haló?", or you are not sure they have finished, ask "Je to všechno?" and wait for the answer.',

@@ -525,7 +525,8 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
     const relay = `${base.replace(/^https:/, 'wss:')}/relay/${call.relaySecret}`;
     // The owner's call listens like a call Miládka places to him; the
     // secretary waits incoming.speech_timeout_ms for a message said in pieces.
-    const timing = callee.owner ? '' : `${incoming.speech_timeout_ms === null ? '' : ` speechTimeout="${incoming.speech_timeout_ms}"`}${relayHints(config, incoming.hints)}`;
+    // The owner's cheat sheet of names serves his own call too ("Jarku" came through as "Jirku", 13. 10. 2026).
+    const timing = (callee.owner || incoming.speech_timeout_ms === null ? '' : ` speechTimeout="${incoming.speech_timeout_ms}"`) + relayHints(config, incoming.hints);
     return twiml(
       `<Connect action="${escapeXml(`${base}/done`)}"><ConversationRelay url="${escapeXml(relay)}" language="${escapeXml(settings.language)}" ` +
         `ttsProvider="ElevenLabs" voice="${escapeXml(relayVoice(config))}" welcomeGreeting="${escapeXml(greeting)}"${relayTranscription(config)}${timing} /></Connect>`,

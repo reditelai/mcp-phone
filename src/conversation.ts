@@ -128,7 +128,7 @@ function systemPrompt(config: Config, vaultDir: string, opening: string, context
     'Speak the language of the conversation. Answer briefly, one to three sentences, the way people talk on the phone. No lists, headings, links, markdown or anything that cannot be said out loud; write numbers, dates and times the way they are spoken.',
     `When the owner picked up, they heard: "${opening}"`,
     'Answer from what you already know first: the reason for the call and its facts are below, and answering from them is instant. Every tool you run leaves the owner waiting in silence, so look things up only when the answer is not there.',
-    'You cannot send, change or delete anything during the call, not even save a draft. When the owner wants a message written or something done, agree what and to whom, repeat it back in a sentence or two so they can say yes, and say you will prepare it right after the call for them to confirm in writing; the whole call is handed over as a transcript when it ends.',
+    'You cannot send, change or delete anything during the call. When the owner wants a reply or a message written and you have mg_save_draft, repeat in a sentence what it will say and to whom, and once he agrees, save it as a draft right away (in the thread when it is a reply, following the draft rules in the notes); say it is in the drafts only after the tool succeeded. Anything else he wants done, agree and repeat back, and say you will prepare it right after the call for him to confirm in writing; the whole call is handed over as a transcript when it ends.',
     'Never read out passwords, keys or anything from .miladka/secrets.',
     'Unless your own rules below say otherwise, you are a woman: in Czech use feminine forms about yourself.',
     'When the owner says goodbye or that this is all, say goodbye in one short sentence and call the hang_up tool. Do not hang up on your own otherwise, and never right after asking a question.',
@@ -136,7 +136,7 @@ function systemPrompt(config: Config, vaultDir: string, opening: string, context
   ];
   if (conv.vault_read) parts.push(`The owner's notes are in ${vaultDir}; you may read them with Read, Grep and Glob.`);
   if (conv.allowed_tools.some((name) => shortName(name).startsWith('mg_'))) {
-    parts.push('Mail during a call: search one mailbox, newest first, at most three results, then read only the one message you need. If it is not clear which mailbox, ask the owner first. Searching every mailbox and reading whole threads are not available during a call.');
+    parts.push('Mail during a call: search one mailbox, newest first, at most three results, then read only the one message you need. When the owner does not say which mailbox, search his main one (the one the notes call main, else the first mg_list_accounts lists) and say which; ask only when nothing is found there. When a first name matches one person in the notes, take that person without asking. Every question costs the owner a round of waiting. Searching every mailbox and reading whole threads are not available during a call.');
   }
   if (context.trim() !== '') parts.push(`Why this call was placed: ${context.trim()}`);
   const persona = resolve(vaultDir, conv.persona_file);
@@ -380,7 +380,7 @@ export async function converse(config: Config, callee: Callee, opening: string, 
       `ttsProvider="ElevenLabs" voice="${escapeXml(voice)}" welcomeGreeting="${escapeXml(opening)}"${relayTranscription(config)}` +
       // Names the speech recognition should expect (people, places from the
       // task): without them "Beznoska" came through as "bez mozku" (8. 10. 2026).
-      relayHints(config, hints) +
+      relayHints(config, callee.owner ? [...(settings.incoming.hints ?? []), ...hints] : hints) +
       ` /></Connect></Response>`;
     session = startSession(config, vaultDir, claude, callee, opening, context, transcript, () => {
       endedBy = 'assistant';
@@ -496,16 +496,17 @@ function clamp(value: unknown, max: number): number {
  * the prompt. Returns the input to run with, or why it is refused.
  */
 export function limitForCall(name: string, input: Record<string, unknown>): { input: Record<string, unknown> } | { refuse: string } {
-  // The call session changes nothing, not even a draft: what the owner wants
-  // written is agreed in the call and written by the main session afterwards,
-  // with the notes, the draft rules and the owner's written consent (Karel,
-  // 8. 10. 2026). Kept here so that a setting cannot let it through.
-  if (WRITING_TOOLS.has(shortName(name))) {
-    return { refuse: 'Nothing is written during a call. Agree with the owner what to write and to whom, repeat it back, and say it will be prepared after the call for them to confirm.' };
+  // The call session sends and changes nothing. The one exception is a draft
+  // in a call with the owner: a promise "I will prepare it after the call"
+  // was broken when the main session did not learn about the call (Věrka,
+  // 13. 10. 2026), and a draft sends nothing. Kept here so that a setting
+  // cannot let anything else through.
+  if (WRITING_TOOLS.has(shortName(name)) && shortName(name) !== 'mg_save_draft') {
+    return { refuse: 'Nothing is sent or changed during a call, only a draft can be saved. Agree with the owner what to do, repeat it back, and say it will be prepared after the call for them to confirm.' };
   }
   switch (shortName(name)) {
     case 'mg_search_threads':
-      if (input['account'] === 'all') return { refuse: 'During a call search one mailbox only. Ask the owner which one if it is not clear.' };
+      if (input['account'] === 'all') return { refuse: 'During a call search one mailbox only: the owner\'s main one unless he named another.' };
       return { input: { ...input, max_results: clamp(input['max_results'], 3) } };
     case 'mg_get_message':
       return { input: { ...input, max_body_length: clamp(input['max_body_length'], 3000) } };

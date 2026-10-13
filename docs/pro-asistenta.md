@@ -294,13 +294,13 @@ Rozhovor nastavuj, až funguje volání se vzkazem (Část A). Je pro pokročil�
 Při `tel_converse` server otevře na dobu hovoru malý most (WebSocket) a zavolá majiteli. Twilio převádí řeč na text a text na řeč a přes most si ho vyměňuje s **oddělenou relací Claude** (Agent SDK). Ta:
 
 - nenačte žádné nastavení, háčky ani MCP servery ze souborů - jen čtení poznámek ve vaultu (mimo `.miladka/secrets/`, `.git` a `.env`), nástroj „zavěsit" a servery, které jí výslovně dáš v nastavení,
-- **nemůže nic odeslat, změnit ani smazat**; co majitel v hovoru chce, připraví jako návrh a ty to po hovoru dotáhneš s jeho písemným souhlasem,
+- **nemůže nic odeslat, změnit ani smazat**, jen uložit koncept mailu (`mg_save_draft`, když ho má v `allowed_tools`); co majitel v hovoru chce dalšího, připraví jako návrh a ty to po hovoru dotáhneš s jeho písemným souhlasem,
 - bere si osobnost z `persona_file` (výchozí `CLAUDE.md` ve vaultu), takže mluví jako ty,
 - po rozloučení sama zavěsí, ale až rozloučení dozní; když druhá strana mezitím promluví, hovor pokračuje,
 - **rozjede se, zatímco telefon zvoní**, takže první odpověď nečeká na start,
 - **nikdy nemlčí:** když sáhne po nástroji a ještě nic neřekla, most sám řekne „Moment, podívám se", po 8 vteřinách „Pořád hledám" a pak každých 15 vteřin „Ještě chvilku",
-- **poštu prohledává úsporně, hlídá to server:** jen jednu schránku (hledání ve všech odmítne), nejvýš 3 výsledky, jednu zprávu do 3000 znaků, celé vlákno vůbec,
-- **nic nezapisuje, ani koncept** (hlídá to server, i kdyby ho nastavení povolilo). Co má majitel napsat nebo udělat, se v hovoru jen domluví a relace mu to zopakuje; koncept napíšeš ty po hovoru.
+- **poštu prohledává úsporně, hlídá to server:** jen jednu schránku (hledání ve všech odmítne), nejvýš 3 výsledky, jednu zprávu do 3000 znaků, celé vlákno vůbec. Když majitel schránku neřekne, hledá v hlavní (podle poznámek, jinak první z `mg_list_accounts`) a neptá se; stejně u jména, které poznámky znají jednou,
+- **koncept mailu uloží hned v hovoru**, když o něj majitel požádá: zopakuje, co v něm bude a komu, a po jeho souhlasu ho uloží (odpověď do vlákna). Nic jiného nezapíše ani neodešle, hlídá to server, i kdyby nastavení povolilo víc. Slib „připravím po hovoru“ pak neselže, ani když hlídač po hovoru neběží (Věrka 13. 10. 2026). Doporuč majiteli přidat `mcp__multi-gmail__mg_save_draft` do `allowed_tools`; bez něj se koncept domluví a napíšeš ho ty po hovoru.
 
 Hovor platí Twilio (telefon, převod řeči) a Claude (relace jede na předplatném, ke kterému je Claude Code v počítači přihlášené; s klíčem `anthropic_api_key` v souboru s klíči na API).
 
@@ -342,7 +342,7 @@ Pak `tel_reload_config` a zkušební rozhovor: `tel_converse` s `opening` „Aho
 - **`context` - tahák k důvodu hovoru, tohle rozhoduje o rychlosti.** Na co je odpověď v taháku, odpoví relace za necelou vteřinu. Každé hledání za hovoru znamená vteřiny ticha. Když voláš kvůli mailu, dej do taháku: celý mail (od koho, kdy, předmět, co přesně píše, ve které schránce), co o odesílateli a věci víš z poznámek, a svůj návrh, co odpovědět nebo udělat. Jen k tomu, kvůli čemu voláš, ne přehled všeho (do 12 000 znaků).
 - **Po hovoru** dostaneš celý přepis, je uložený v `transcript_dir` a odkazuje na něj deník hovorů. Hned po něm:
   1. Z přepisu sepiš, co se domluvilo: co napsat, komu, co udělat.
-  2. Koncepty mailů napiš ty, podle pravidel pro koncepty (podpis, vlákno, oslovení podle profilu člověka). Hovorová relace je psát nesmí.
+  2. Koncepty mailů: co relace uložila už v hovoru (stojí v přepisu u `mg_save_draft`), jen zkontroluj podle pravidel pro koncepty (podpis, vlákno, oslovení podle profilu člověka) a případně oprav. Ostatní napiš ty.
   3. Pošli majiteli krátké shrnutí ke schválení, kanálem, kterým s ním běžně píšeš. Odeslat smíš jen to, co výslovně potvrdí písemně.
   4. Zapiš, co z hovoru plyne, tam, kam patří (deník, úkoly, lidé). **Přepis nemaž**, zůstává jako záznam. S `timings: true` jsou v přepisu i časy (za jak dlouho po otázce zaznělo první slovo, který nástroj běžel a jak dlouho, start relace): když majitel řekne, že něco trvalo, odtud se pozná proč.
 - Klidné hodiny a denní strop platí stejně jako u `tel_call`.

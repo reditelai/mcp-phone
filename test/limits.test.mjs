@@ -19,10 +19,11 @@ test('one message, short; no whole threads', () => {
   assert.equal(limitForCall(mg('mg_list_accounts'), { verify: true }).input.verify, false);
 });
 
-test('nothing is written during a call, whatever the settings allow', () => {
-  for (const name of ['mg_save_draft', 'mg_send_message', 'mg_trash_message', 'mg_set_flags', 'mg_label_thread']) {
+test('nothing is sent or changed during a call, whatever the settings allow; a draft may be saved', () => {
+  for (const name of ['mg_send_message', 'mg_trash_message', 'mg_set_flags', 'mg_label_thread', 'mg_label_message', 'mg_unlabel_thread']) {
     assert.ok('refuse' in limitForCall(mg(name), { account: 'prace' }), name);
   }
+  assert.deepEqual(limitForCall(mg('mg_save_draft'), { account: 'prace', to: 'x' }), { input: { account: 'prace', to: 'x' } });
 });
 
 test('other tools pass unchanged', () => {

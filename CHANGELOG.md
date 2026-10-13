@@ -5,6 +5,19 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.23] - 2026-10-13
+
+V hovoru s majitelem se Miládka zbytečně neptá, jména líp rozpozná a koncept mailu uloží hned.
+
+- Koncept mailu (`mg_save_draft`) jde uložit přímo v hovoru s majitelem, po zopakování a jeho souhlasu. Nic jiného se v hovoru dál nezapíše ani neodešle, hlídá to server. Slib „draft připravím po hovoru“ se nesplnil, když hlavní relace o hovoru nevěděla (Věrka 13. 10. 2026).
+- Bez upřesnění hledá v hlavní schránce a jméno, které poznámky znají jednou, bere bez ptaní. Dotaz „ve které schránce a kterou Jarku?“ stál kolo čekání navíc.
+- Tahák jmen (`incoming.hints`) dostávají i hovory s majitelem, nejen sekretářka („Jarku“ se přepsalo jako „Jirku“).
+
+### Při aktualizaci
+
+- Když má majitel v `conversation.allowed_tools` nástroje Multigmailu, nabídni mu přidat `mcp__multi-gmail__mg_save_draft`: koncepty pak vzniknou rovnou v hovoru. Zapiš až po souhlasu, pak `tel_reload_config`.
+- Službu příchozích hovorů po aktualizaci restartuj (`systemctl --user restart mcp-phone-prichozi`).
+
 ## [0.3.22] - 2026-10-13
 
 Sekretářka nezní jako záznamník a jméno volajícího nahlas neopakuje.

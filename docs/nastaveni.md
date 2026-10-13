@@ -64,7 +64,7 @@ Rozhovor s majitelem (`tel_converse`), s jinými lidmi (`tel_converse_with`) a z
 | `conversation.timings` | `false` | Časy v přepisu: za jak dlouho po větě volajícího začala odpověď, rozestup jeho řádků, běh nástrojů, start relace. Na ladění rychlosti. |
 | `conversation.vault_read` | `true` | Relace hovoru s majitelem smí číst poznámky. |
 | `conversation.mcp_servers` | `{}` | Další servery pro hovor s majitelem, stejný tvar jako v `.mcp.json`. Jen spouštěné z počítače, nikdy WhatsApp (drží jedno spojení, druhá relace by ho shodila). Konektory z claude.ai do hovoru dát nejde. |
-| `conversation.allowed_tools` | `[]` | Nástroje z `mcp_servers`, které hovor s majitelem smí použít. Pro poštu z Multigmailu `mg_list_accounts`, `mg_search_threads`, `mg_get_message` (s předponou `mcp__multi-gmail__`). Cokoli, co ve schránce něco mění, server za hovoru odmítne i tak. |
+| `conversation.allowed_tools` | `[]` | Nástroje z `mcp_servers`, které hovor s majitelem smí použít. Pro poštu z Multigmailu `mg_list_accounts`, `mg_search_threads`, `mg_get_message` a kvůli konceptům v hovoru `mg_save_draft` (vše s předponou `mcp__multi-gmail__`). Kromě konceptu server za hovoru odmítne cokoli, co ve schránce něco mění, i kdyby to tu stálo. |
 | `conversation.others_introduction` | nenastaveno | První věta hovoru s kýmkoli jiným než majitelem: kdo volá a že je to AI asistentka, třeba „Dobrý den, tady Miládka, AI asistentka Jana Nováka.“ Musí obsahovat „AI“. Bez ní `tel_converse_with` nefunguje. |
 
 ## Příchozí hovory (`incoming`)
@@ -82,7 +82,7 @@ Sekretářka bere hovory, které majitel nezvedne a operátor je přesměruje na
 | `incoming.model` | `"sonnet"` | Model sekretářky. Nezávisí na modelu hovorů s majitelem. |
 | `incoming.effort` | `null` | Jak moc sekretářka přemýšlí: `low` až `max`. `null` = výchozí Claude Code, jako v hovorech s majitelem. `low` v testech rychlejší nebyl. |
 | `incoming.measure_gaps` | `false` | Jen na ladění, na majitelův pokyn: hovor se nahraje do dvou stop, služba z nahrávky změří, jak dlouho volající u každé odpovědi čekal, zapíše to do přepisu (řádky `měření:`, rozpad na Twilio, model a hlas) a nahrávku z Twilia smaže. Volající o nahrávání neví, proto jen na zkušební hovory. |
-| `incoming.hints` | nenastaveno | Tahák pro rozpoznávání řeči: jména, firmy a místa z majitelových hovorů (nejvýš 60, každé do 60 znaků). Dostane ho jen rozpoznávání u Twilia, sekretářka ne. Funguje jen s Deepgramem. |
+| `incoming.hints` | nenastaveno | Tahák pro rozpoznávání řeči: jména, firmy a místa z majitelových hovorů (nejvýš 60, každé do 60 znaků). Platí pro sekretářku i pro všechny hovory s majitelem. Dostane ho jen rozpoznávání u Twilia, sekretářka sama ne. Funguje jen s Deepgramem. |
 | `incoming.greeting` | nenastaveno | Co volající uslyší jako první. Musí říct, že hovor bere AI asistentka (slovo „AI“). Bez něj sekretářka nenaběhne. Doporučený tvar: krátce a s otázkou na konci, „Dobrý den, tady Miládka, Janova AI asistentka. S kým mluvím?“. Se „vzkaz“ nebo „vyřídit“ to zní jako záznamník. |
 | `incoming.task` | vestavěné pokyny (anglicky) | Pokyny sekretářky: nechá volajícího mluvit, zeptá se jen na jméno, nic neslíbí ani neprozradí, krátce se rozloučí. Měnit jen výjimečně: vlastní text nahradí vestavěný celý a s novými verzemi se nezlepšuje. |
 | `incoming.voicemail_text` | `"Dobrý den, teď to nikdo nemůže vzít. Nechte prosím vzkaz po pípnutí."` | Co uslyší volající, když je sekretářka vypnutá. |

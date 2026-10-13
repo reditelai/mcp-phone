@@ -5,6 +5,17 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.24] - 2026-10-13
+
+Hlídač vzkazů má svůj řádek pro automatický režim, aby po aktualizaci nestál.
+
+- Návod, Část D, Provoz: řádek „Phone watcher (Miladka)“ do popisu prostředí automatického režimu, zapisuje se bez ptaní spolu s hookem hlídače. Klasifikátor po aktualizaci zablokoval nové spuštění hlídače, ten stál přes noc a slib z hovoru s majitelem propadl (Věrka 13. 10. 2026).
+- Návod, aktualizace: po restartu služby znovu spustit hlídač a ověřit, že běží.
+
+### Při aktualizaci
+
+- Když běží příchozí hovory a v popisu prostředí automatického režimu chybí řádek „Phone watcher (Miladka)“, doplň ho podle návodu (Accept edits předem, pak připomeň návrat). Nastavení telefonu se nemění.
+
 ## [0.3.23] - 2026-10-13
 
 V hovoru s majitelem se Miládka zbytečně neptá, jména líp rozpozná a koncept mailu uloží hned.

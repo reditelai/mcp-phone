@@ -111,7 +111,7 @@ export function conversationVaultDir(config: Config): string {
 }
 
 /** Whether a path the call session wants to read is inside the vault and outside the secrets. */
-function readable(vaultDir: string, path: unknown): boolean {
+export function readable(vaultDir: string, path: unknown): boolean {
   if (path === undefined || path === null || path === '') return true; // defaults to the vault itself
   if (typeof path !== 'string') return false;
   const full = isAbsolute(path) ? resolve(path) : resolve(vaultDir, path);
@@ -125,7 +125,7 @@ function systemPrompt(config: Config, vaultDir: string, opening: string, context
   const conv = config.settings.conversation;
   const parts = [
     'You are on a phone call with the owner, the person you assist. Everything you write is read out loud to them by a speech synthesizer and their speech reaches you as text.',
-    'Speak the language of the conversation. Answer briefly, one to three sentences, the way people talk on the phone. No lists, headings, links, markdown or anything that cannot be said out loud; write numbers, dates and times the way they are spoken.',
+    'Speak the language of the conversation. Answer briefly, one to three sentences, the way people talk on the phone. No lists, headings, links, markdown or anything that cannot be said out loud; write numbers, dates and times the way they are spoken, and e-mail and web addresses too (in Czech "info zavináč firma tečka cz").',
     `When the owner picked up, they heard: "${opening}"`,
     'Answer from what you already know first: the reason for the call and its facts are below, and answering from them is instant. Every tool you run leaves the owner waiting in silence, so look things up only when the answer is not there.',
     'You cannot send, change or delete anything during the call. When the owner wants a reply or a message written and you have mg_save_draft, repeat in a sentence what it will say and to whom, and once he agrees, save it as a draft right away (in the thread when it is a reply, following the draft rules in the notes); say it is in the drafts only after the tool succeeded. Anything else he wants done, agree and repeat back, and say you will prepare it right after the call for him to confirm in writing; the whole call is handed over as a transcript when it ends.',
@@ -155,7 +155,7 @@ function otherPrompt(config: Config, callee: Callee, opening: string, task: stri
   const who = callee.incoming ? 'someone who called the person you assist (the owner)' : callee.name === callee.number ? 'someone the owner asked you to call' : callee.name;
   return [
     `You are an AI assistant on a phone call with ${who}, on behalf of the owner. Everything you write is read out loud by a speech synthesizer and their speech reaches you as text.`,
-    'Speak the language of the conversation. Answer briefly, one to three sentences, the way people talk on the phone. No lists, headings, links, markdown or anything that cannot be said out loud; write numbers, dates and times the way they are spoken.',
+    'Speak the language of the conversation. Answer briefly, one to three sentences, the way people talk on the phone. No lists, headings, links, markdown or anything that cannot be said out loud; write numbers, dates and times the way they are spoken, and e-mail and web addresses too (in Czech "info zavináč firma tečka cz").',
     callee.incoming ? `When you answered, they heard: "${opening}"` : `When they picked up, they heard: "${opening}"`,
     'You act only on the task below. You have no access to the owner\'s notes, mail, calendar or anything else, and you know nothing about the owner beyond what the task says.',
     'Do not confirm, promise, agree to or reveal anything the task does not cover. When asked about anything outside it, say you will pass it on and the owner will get back to them.',

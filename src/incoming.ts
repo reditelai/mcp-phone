@@ -34,6 +34,7 @@ import {
   escapeXml,
   findExecutable,
   listen,
+  readable,
   relayHints,
   relayTranscription,
   relayVoice,
@@ -155,13 +156,50 @@ export function sameNumber(a: string, b: string): boolean {
 export function admitted(config: Config, from: string, forwardedFrom: string): boolean {
   const lines = config.settings.incoming.owner_lines;
   if (lines === undefined) return true;
-  const ours = (number: string): boolean => lines.some((line) => sameNumber(line, number));
+  const ours = (number: string): boolean => lines.some((line) => sameNumber(lineNumber(line), number));
   return forwardedFrom !== '' ? ours(forwardedFrom) : ours(from);
+}
+
+type OwnerLine = NonNullable<Config['settings']['incoming']['owner_lines']>[number];
+
+function lineNumber(line: OwnerLine): string {
+  return typeof line === 'string' ? line : line.number;
 }
 
 /** The owner's own numbers: the one Miládka calls and the lines in incoming.owner_lines. */
 export function ownerLine(config: Config, number: string): boolean {
-  return [config.settings.owner, ...(config.settings.incoming.owner_lines ?? [])].some((line) => sameNumber(line, number));
+  return [config.settings.owner, ...(config.settings.incoming.owner_lines ?? []).map(lineNumber)].some((line) => sameNumber(line, number));
+}
+
+/** Longest notes file the secretary gets; a longer one is not used at all. */
+export const BRIEF_MAX_CHARS = 3000;
+
+/**
+ * The owner's notes for the line the call came through (forwarded from it, or
+ * a direct call from it): the text, or why it cannot be used. Read at every
+ * call, so a change applies at once. Only inside the vault, never secrets.
+ */
+export function lineBrief(config: Config, vaultDir: string, from: string, forwardedFrom: string): { text: string } | { problem: string } | null {
+  const via = forwardedFrom !== '' ? forwardedFrom : from;
+  const line = (config.settings.incoming.owner_lines ?? []).find((l) => typeof l !== 'string' && sameNumber(l.number, via));
+  if (line === undefined || typeof line === 'string') return null;
+  const file = line.brief_file;
+  if (!readable(vaultDir, file)) return { problem: `${file} je mimo složku Miládky nebo v tajné složce` };
+  const full = resolve(vaultDir, file);
+  if (!existsSync(full)) return { problem: `${file} neexistuje` };
+  const text = readFileSync(full, 'utf8').trim();
+  if (text === '') return { problem: `${file} je prázdný` };
+  if (text.length > BRIEF_MAX_CHARS) return { problem: `${file} má ${text.length} znaků, nejvýš ${BRIEF_MAX_CHARS}` };
+  return { text };
+}
+
+/** The secretary's task with the owner's notes for the line, when there are any. */
+export function withBrief(task: string, brief: string): string {
+  return [
+    task,
+    'The owner\'s notes for you. You may tell callers what they say, and nothing more about him. What they say about when he calls back is what is usual, not a promise: never turn it into an exact time or a commitment.',
+    brief,
+  ].join('\n\n');
 }
 
 /** Wrong PINs: three in a call end it, ten in a day switch the PIN off until tomorrow. */
@@ -484,7 +522,11 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
       const callee: Callee = { number: from, name: `příchozí ${from || 'neznámé číslo'}`, owner: false, incoming: true };
       log(`hovor od ${from}${forwardedFrom ? ` (přesměrováno z ${forwardedFrom})` : ''}`);
       const away = onVacation(config);
-      response.end(connect(sid, from, forwardedFrom, callee, away?.greeting ?? incoming.greeting, away === null ? incoming.task : vacationTask(incoming.task, away)));
+      let task = away === null ? incoming.task : vacationTask(incoming.task, away);
+      const brief = lineBrief(config, vaultDir, from, forwardedFrom);
+      if (brief !== null && 'problem' in brief) log(`hovor od ${from}: tahák sekretářky nejde použít: ${brief.problem}`);
+      if (brief !== null && 'text' in brief) task = withBrief(task, brief.text);
+      response.end(connect(sid, from, forwardedFrom, callee, away?.greeting ?? incoming.greeting, task));
     });
   });
 

@@ -5,6 +5,19 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.25] - 2026-10-18
+
+Sekretářka mluví přirozeněji a u každé linky může mít poznámky, co smí volajícím říct.
+
+- Sekretářka mluví přirozeněji: zjistí, kdo volá a co chce, doptá se nanejvýš dvakrát a žádnou větu neopakuje. Dřív měla předepsané věty a „Je to všechno?" říkala na všechno (Karel 18. 10. 2026).
+- Linka v `incoming.owner_lines` může mít poznámky pro sekretářku (`brief_file`): co smí volajícím říct navíc. Každá linka má vlastní soubor.
+- E-mailové a webové adresy Miládka v hovoru vyslovuje („zavináč", „tečka"). Hlas „@" zkomolil (Karel 18. 10. 2026).
+
+### Při aktualizaci
+
+- Nastavení se nemění. Službu příchozích hovorů po aktualizaci restartuj (`systemctl --user restart mcp-phone-prichozi`) a znovu spusť hlídač vzkazů.
+- Pak nabídni majiteli poznámky pro sekretářku podle návodu, Část D. Zapiš je až po jeho schválení.
+
 ## [0.3.24] - 2026-10-13
 
 Hlídač vzkazů má svůj řádek pro automatický režim, aby po aktualizaci nestál.

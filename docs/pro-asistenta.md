@@ -381,7 +381,7 @@ Zavolá jinému člověku a domluví s ním jednu konkrétní věc: zjistit info
 
 # Část D - Příchozí hovory (jen server)
 
-Sekretářka: když majitel nezvedá, operátor hovor přesměruje na číslo u Twilia a Miládka ho vezme. Nechá volajícího říct, co chce, zeptá se nanejvýš na jméno, a když si není jistá, že domluvil, nebo odpověděla na jeho otázku, zeptá se „Je to všechno?“. Skončí krátkým rozloučením, vzkaz volajícímu neopakuje (majitel dostane celý hovor). Pauzu ve vzkazu přečká (Twilio počká na ticho, `incoming.speech_timeout_ms`) beze slova zavěsit nejde (server to odmítne) a když volající mluví dál, než rozloučení dozní, hovor nezavěsí. Nic neprozradí ani neslíbí. Vzkaz pak dostaneš ty a předáš ho majiteli.
+Sekretářka: když majitel nezvedá, operátor hovor přesměruje na číslo u Twilia a Miládka ho vezme. Zjistí, kdo volá a co chce. Nechá volajícího mluvit, doptá se nanejvýš dvakrát a jen na to, co by majitel potřeboval, a žádnou větu neopakuje. Pauzu ve vzkazu přečká (Twilio počká na ticho, `incoming.speech_timeout_ms`). Když volající skončí, krátce se rozloučí a vzkaz mu neopakuje, protože majitel dostane celý hovor. Beze slova zavěsit nejde (server to odmítne) a když volající mluví dál, než rozloučení dozní, hovor nezavěsí. Nic neprozradí ani neslíbí kromě toho, co stojí v poznámkách pro sekretářku u linky (oddíl níž). Vzkaz pak dostaneš ty a předáš ho majiteli.
 
 **Tohle je nejnáročnější část addonu a zasahuje do majitelova telefonu.** Přesměrování u operátora se nastavuje až úplně na konci, když všechno ostatní prokazatelně funguje. Napůl udělané nastavení znamená, že volající uslyší chybu nebo nic. **Když kterákoli podmínka níž neplatí, nepokračuj.** Řekni uživateli, co chybí, a skonči. Nic nenastavuj „zatím“.
 
@@ -478,6 +478,29 @@ Bez filtru sekretářka vezme každý hovor, který na číslo u Twilia přijde.
 | 3. Cokoli jiného: přímý hovor odjinud, nebo přesměrovaný z čísla mimo seznam | Hned obsazovací tón. Nic nehraje, sekretářka ani záznamník se nespustí a Twilio odmítnutý hovor neúčtuje. Do deníku hovorů přibude řádek `odmítnuto, od: … (přesměrováno z …), obsazovací tón` a hlídač ho ohlásí jako vzkaz s `"druh": "odmitnuto"` a `"soubor": null`. |
 
 **Známé omezení:** záložní odpověď v Twiliu (TwiML Bin, krok 4 nastavení) filtr nezná. Když služba neběží (výpadek, restart serveru), Twilio přehraje výzvu a nahraje vzkaz od kohokoli, i od čísla, které by filtr odmítl. Majitel to tak chce: vzkaz při výpadku je lepší než nic. Takový vzkaz přijde jako `zaznamnik`.
+
+## Poznámky pro sekretářku (`brief_file`)
+
+Bez poznámek sekretářka o majiteli nic neví a jen bere vzkazy. S poznámkami volajícím řekne i to, co v nich stojí, třeba že se majitel obvykle ozve do druhého dne, nebo kam psát s fakturami. Každá linka v `owner_lines` může mít vlastní soubor. Sekretářka dostane jen soubor linky, ze které hovor přišel.
+
+**Zeptej se majitele:** „Chcete sekretářce u některé linky dát poznámky, co smí volajícím říct? Doporučuju aspoň jednu větu, kdy se obvykle ozvete, mluví pak jistěji." Když nechce, oddíl přeskoč.
+
+**Jak poznámky sestavit:**
+- Každou větu ukaž majiteli a zapiš jen ty, které schválí. Co v poznámkách je, může zaznít komukoli, kdo zavolá, a číslo volajícího jde zfalšovat.
+- Z poznámek ve vaultu nic nepřebírej bez jeho potvrzení. Žádná soukromá ani klientská data, žádné kalendáře ani čísla kolegů.
+- Nepiš, co neříkat a neslibovat. To hlídají pokyny sekretářky samy.
+- Krátce, obyčejné věty, bez nadpisů. Nejvýš 3 000 znaků.
+
+**Soubor** `system/sekretarka-<linka>.md` (třeba `sekretarka-prace.md`) a v `owner_lines` u čísla linky:
+
+```json
+"owner_lines": [
+  { "number": "+420777123456", "brief_file": "system/sekretarka-prace.md" },
+  "+420602123456"
+]
+```
+
+Služba si změnu načte sama před dalším hovorem. Ověř zkušebním hovorem z té linky a podle přepisu, že sekretářka poznámky použila.
 
 **Ověření filtru**, s majitelem, až je služba zapnutá:
 1. Majitel zavolá **přímo** na číslo u Twilia ze svého čísla ze seznamu. Musí ho vzít sekretářka (případ 2).

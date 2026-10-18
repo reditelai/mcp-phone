@@ -49,6 +49,33 @@ test('with owner_lines, only the owner\'s forwarded or direct calls reach the se
   assert.ok(!admitted(c(lines), '+420777123456', '+420777000222'));
 });
 
+test('a line with notes gives the secretary its notes, only inside the vault', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { admitted, lineBrief, withBrief, BRIEF_MAX_CHARS } = await import('../dist/incoming.js');
+  const vault = mkdtempSync(join(tmpdir(), 'brief-'));
+  mkdirSync(join(vault, 'system'));
+  writeFileSync(join(vault, 'system', 'sekretarka-prace.md'), 'Volá zpátky obvykle týž den.\n');
+  const c = (brief_file) => ({ settings: { incoming: { owner_lines: [{ number: '+420777123456', brief_file }, '+420602123456'] } } });
+  const work = c('system/sekretarka-prace.md');
+  // a line with notes still filters as before
+  assert.ok(admitted(work, '+420777000111', '777123456'));
+  assert.ok(!admitted(work, '+420777000111', '+420777000222'));
+  // forwarded from the line, or a direct call from it: its notes
+  assert.deepEqual(lineBrief(work, vault, '+420777000111', '777123456'), { text: 'Volá zpátky obvykle týž den.' });
+  assert.deepEqual(lineBrief(work, vault, '+420777123456', ''), { text: 'Volá zpátky obvykle týž den.' });
+  // the other line has none, and nothing from the first reaches it
+  assert.equal(lineBrief(work, vault, '+420777000111', '+420602123456'), null);
+  // what cannot be used is reported, never read
+  assert.ok('problem' in lineBrief(c('system/chybi.md'), vault, '+420777123456', ''));
+  assert.ok('problem' in lineBrief(c('../mimo.md'), vault, '+420777123456', ''));
+  assert.ok('problem' in lineBrief(c('.miladka/secrets/hesla.md'), vault, '+420777123456', ''));
+  writeFileSync(join(vault, 'system', 'dlouhy.md'), 'x'.repeat(BRIEF_MAX_CHARS + 1));
+  assert.ok('problem' in lineBrief(c('system/dlouhy.md'), vault, '+420777123456', ''));
+  assert.match(withBrief('Úkol.', 'Poznámky.'), /^Úkol\.\n\n.*not a promise.*\n\nPoznámky\.$/s);
+});
+
 test('the PIN: only the owner\'s numbers, exact digits, ten wrong tries a day switch it off', async () => {
   const { mkdtempSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');

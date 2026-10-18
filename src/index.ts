@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Karel Derfl
+// SPDX-License-Identifier: PolyForm-Shield-1.0.0
+// Copyright 2026 Evermind Technologies s.r.o.
 
 /**
  * mcp-phone - an MCP server that lets an assistant phone its owner and read a

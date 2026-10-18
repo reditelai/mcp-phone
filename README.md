@@ -22,4 +22,4 @@ Vydaný server se spustí jen ze složky doplňků Miládky (`.doplnky/mcp-phone
 
 ## Licence
 
-Apache 2.0, viz [LICENSE](LICENSE).
+PolyForm Shield 1.0.0, viz [LICENSE](LICENSE). Kód je veřejný, abyste si mohli ověřit, co doplněk dělá. Smíte ho používat, upravovat i sdílet, jen z něj nesmíte udělat produkt, který konkuruje Miládce. Starší verze vyšly pod Apache 2.0 a pod ní zůstávají.

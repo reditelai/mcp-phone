@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Karel Derfl
+// SPDX-License-Identifier: PolyForm-Shield-1.0.0
+// Copyright 2026 Evermind Technologies s.r.o.
 
 import type { Config } from '../config.js';
 import { ToolError } from '../errors.js';

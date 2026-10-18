@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Karel Derfl
+// SPDX-License-Identifier: PolyForm-Shield-1.0.0
+// Copyright 2026 Evermind Technologies s.r.o.
 
 /**
  * A failure a tool reports to the assistant: a stable code it can branch on

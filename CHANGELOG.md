@@ -5,6 +5,8 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+- Licence je od této verze PolyForm Shield 1.0.0 místo Apache 2.0 a autorská práva má Evermind Technologies s.r.o. Starší verze zůstávají pod Apache 2.0.
+
 ## [0.3.25] - 2026-10-18
 
 Sekretářka mluví přirozeněji a u každé linky může mít poznámky, co smí volajícím říct.

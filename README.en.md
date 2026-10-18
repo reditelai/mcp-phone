@@ -22,4 +22,4 @@ What each setting does and what applies when you leave it out: [phone settings](
 
 ## License
 
-Apache 2.0, see [LICENSE](LICENSE).
+PolyForm Shield 1.0.0, see [LICENSE](LICENSE). The code is public so you can check what the add-on does. You may use, modify and share it, but not build a product that competes with Miládka. Earlier versions were released under Apache 2.0 and remain under it.

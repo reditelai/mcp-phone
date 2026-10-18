@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Karel Derfl
+// SPDX-License-Identifier: PolyForm-Shield-1.0.0
+// Copyright 2026 Evermind Technologies s.r.o.
 
 /**
  * The three Twilio calls this server needs, over plain HTTPS: place a call,

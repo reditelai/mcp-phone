@@ -5,6 +5,11 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+- Česká Miládka v hovoru říká „AI" jako „éjáj", ne po písmenech, i v pozdravu a představení z nastavení (Věrka 21. 10. 2026).
+- Opakované zavěšení v jednom kroku nic nedělá. Sekretářka ho volala třikrát za sebou (Věrka 21. 10. 2026).
+- Přepis uříznuté odpovědi ukazuje, co volající slyšel od začátku. Dřív začínal uprostřed věty, protože Twilio hlásí jen poslední úsek (Věrka 21. 10. 2026).
+- Deník hovorů u volajícího, který zavěsil beze slova, uvádí, jestli to bylo během pozdravu, nebo po něm. Jedenáct takových hovorů za týden a nebylo jasné proč (Věrka 23. 10. 2026).
+- Návod, Část D: hovor v pozadí u volajícího sekretářku zdrží, server to neovlivní.
 - Licence je od této verze PolyForm Shield 1.0.0 místo Apache 2.0 a autorská práva má Evermind Technologies s.r.o. Starší verze zůstávají pod Apache 2.0.
 
 ## [0.3.25] - 2026-10-18

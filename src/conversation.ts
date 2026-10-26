@@ -295,6 +295,65 @@ export function speakingMs(text: string): number {
   return Math.max(1500, text.length * 70);
 }
 
+/**
+ * Words the synthesizer says wrong, written the way they are said. The Czech
+ * voice spelled "AI" out letter by letter in the secretary's introduction
+ * (Věrka, 21. 10. 2026). Done here, not in the prompt: the greeting comes
+ * from the settings and never passes the model.
+ */
+const PRONUNCIATION: Record<string, Array<[RegExp, string]>> = {
+  cs: [[/(?<![\p{L}\p{N}])AI(?![\p{L}\p{N}])/gu, 'éjáj']],
+};
+
+/** A text as the synthesizer should get it, in the language of the call. */
+export function pronounced(text: string, language: string): string {
+  let out = text;
+  for (const [pattern, spoken] of PRONUNCIATION[language.slice(0, 2)] ?? []) out = out.replace(pattern, spoken);
+  return out;
+}
+
+/**
+ * The same for an answer streamed in pieces: a word at the end of a piece is
+ * held back until the next one, so a word split between two pieces is caught.
+ */
+export class Pronouncer {
+  private held = '';
+
+  constructor(private readonly language: string) {}
+
+  push(piece: string): string {
+    const text = this.held + piece;
+    const tail = /[\p{L}\p{N}]+$/u.exec(text);
+    const cut = tail === null ? text.length : tail.index;
+    this.held = text.slice(cut);
+    return pronounced(text.slice(0, cut), this.language);
+  }
+
+  end(): string {
+    const text = this.held;
+    this.held = '';
+    return pronounced(text, this.language);
+  }
+
+  drop(): void {
+    this.held = '';
+  }
+}
+
+/**
+ * What the other side heard of an answer they spoke over, from its start.
+ * Twilio's utteranceUntilInterrupt may hold only the last stretch of it: a
+ * transcript showed an answer starting mid-sentence, "aby Karel věděl, komu"
+ * (Věrka, 21. 10. 2026). When that stretch is found in what was said, the
+ * part before it was heard too.
+ */
+export function heardPart(said: string, heard: string): string {
+  const stretch = heard.trim();
+  if (stretch === '') return '';
+  const at = said.indexOf(stretch);
+  return at < 0 ? stretch : said.slice(0, at + stretch.length).trim();
+}
+
 export async function converse(config: Config, callee: Callee, opening: string, context: string, hints: string[] = []): Promise<ConversationResult> {
   const { settings, keys } = config;
   const conv = settings.conversation;
@@ -377,7 +436,7 @@ export async function converse(config: Config, callee: Callee, opening: string, 
     const relay = `${base.replace(/^https:/, 'wss:')}/relay/${secret}`;
     const twiml =
       `<Response><Connect><ConversationRelay url="${escapeXml(relay)}" language="${escapeXml(settings.language)}" ` +
-      `ttsProvider="ElevenLabs" voice="${escapeXml(voice)}" welcomeGreeting="${escapeXml(opening)}"${relayTranscription(config)}` +
+      `ttsProvider="ElevenLabs" voice="${escapeXml(voice)}" welcomeGreeting="${escapeXml(pronounced(opening, settings.language))}"${relayTranscription(config)}` +
       // Names the speech recognition should expect (people, places from the
       // task): without them "Beznoska" came through as "bez mozku" (8. 10. 2026).
       relayHints(config, callee.owner ? [...(settings.incoming.hints ?? []), ...hints] : hints) +
@@ -587,8 +646,16 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
     w?.();
   };
 
-  const send = (payload: object): void => {
-    if (!warming && ws !== null && ws.readyState === 1) ws.send(JSON.stringify(payload));
+  const voice = new Pronouncer(config.settings.language);
+  const send = (payload: { type: string; token?: string; last?: boolean }): void => {
+    if (warming || ws === null || ws.readyState !== 1) return;
+    if (payload.type !== 'text') {
+      ws.send(JSON.stringify(payload));
+      return;
+    }
+    const token = voice.push(payload.token ?? '') + (payload.last === true ? voice.end() : '');
+    if (token === '' && payload.last !== true) return;
+    ws.send(JSON.stringify({ ...payload, token }));
   };
   /** A whole sentence from the bridge itself, spoken at once. */
   const speak = (text: string): void => {
@@ -632,6 +699,9 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
           cutOff: lastCutAt > turnStartedAt,
         });
         if (refusal !== null) return { content: [{ type: 'text', text: refusal }], isError: true };
+        // Asked again while the call is ending: nothing to do (three in a row,
+        // Věrka 21. 10. 2026). Not an error, so the session does not try again.
+        if (hangUp.requested) return { content: [{ type: 'text', text: 'The call is already ending. Say nothing more.' }] };
         hangUp.request();
         return { content: [{ type: 'text', text: 'The call ends once your last sentence has been spoken. Say nothing more.' }] };
       }),
@@ -808,27 +878,31 @@ export function startSession(config: Config, vaultDir: string, claude: string, c
      */
     interrupt(heard?: string): void {
       stopTimer();
+      voice.drop();
+      // The answer being cut: still streaming, or already in the transcript.
+      let answer: Line | null = null;
+      if (turnText.trim() === '') {
+        for (let i = transcript.length - 1; i >= 0; i--) {
+          const line = transcript[i]!;
+          if (line.who === 'callee') break;
+          if (line.who === 'assistant') {
+            answer = line;
+            break;
+          }
+        }
+      }
+      const whole = heardPart(answer?.text ?? turnText, heard ?? '');
       if (!warming) {
         lastCutAt = Date.now();
-        unheard = (heard ?? '').trim();
+        unheard = whole;
         if (callOffs < MAX_CALL_OFFS && hangUp.cancel()) {
           hangUpCalledOff = true;
           callOffs += 1;
         }
       }
       if (heard !== undefined && !warming) {
-        if (turnText.trim() !== '') {
-          interruptedAt = heard;
-        } else {
-          for (let i = transcript.length - 1; i >= 0; i--) {
-            const line = transcript[i]!;
-            if (line.who === 'callee') break;
-            if (line.who === 'assistant') {
-              line.text = cut(heard);
-              break;
-            }
-          }
-        }
+        if (answer === null) interruptedAt = whole;
+        else answer.text = cut(whole);
       }
       void session.interrupt().catch(() => {});
     },

@@ -38,6 +38,7 @@ import {
   relayHints,
   relayTranscription,
   relayVoice,
+  pronounced,
   speakingMs,
   startSession,
   writeTranscript,
@@ -48,6 +49,21 @@ import { gapLines, readWav, speech, splitChannels } from './measure.js';
 import { callParties, deleteRecording, downloadRecording, downloadRecordingWav, findNumber, listRecordings, recordingStatus, startRecording } from './twilio.js';
 
 /** Base of every address of the service: public_url/prichozi/<secret>. */
+/**
+ * A caller who hung up without a word: when, so the call log shows whether
+ * they left during the greeting or after it. Eleven such calls in a week
+ * (Věrka, 23. 10. 2026) and nobody could say which; the greeting's length is
+ * estimated the way a hang-up waits for a goodbye. Null for any other call.
+ */
+export function silentHangUp(endedBy: string, transcript: readonly Line[], connectedAt: number | undefined, greeting: string, now = Date.now()): string | null {
+  if (endedBy !== 'caller' || connectedAt === undefined || transcript.some((line) => line.who === 'callee')) return null;
+  const after = Math.round((now - connectedAt) / 1000);
+  const greetingS = Math.round(speakingMs(greeting) / 1000);
+  return after <= greetingS
+    ? `bez slova, zavěsil během pozdravu (po ${after} s, pozdrav trvá asi ${greetingS} s)`
+    : `bez slova, zavěsil ${after - greetingS} s po pozdravu (pozdrav trvá asi ${greetingS} s)`;
+}
+
 export function incomingBase(config: Config): string | null {
   const conv = config.settings.conversation;
   const secret = config.keys.incoming_secret;
@@ -132,7 +148,7 @@ function twiml(body: string): string {
 
 function say(config: Config, text: string): string {
   const { settings } = config;
-  return `<Say voice="${escapeXml(settings.voice)}" language="${escapeXml(settings.language)}">${escapeXml(text)}</Say>`;
+  return `<Say voice="${escapeXml(settings.voice)}" language="${escapeXml(settings.language)}">${escapeXml(pronounced(text, settings.language))}</Say>`;
 }
 
 /**
@@ -353,6 +369,10 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
     finished: boolean;
     /** The relay connected: the secretary is on the line. */
     connected: boolean;
+    /** When the relay connected, by the server's clock. */
+    connectedAt?: number;
+    /** What the caller heard first, for telling a hang-up during it. */
+    greeting: string;
     /** A recording for measuring the gaps (incoming.measure_gaps), from when by the server's clock. */
     recording?: { sid: string; startedAt: number };
   }
@@ -364,6 +384,7 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
     call.session.close();
     if (current === call) current = null;
     const seconds = Math.round((Date.now() - call.startedAt) / 1000);
+    const note = silentHangUp(call.endedBy, call.transcript, call.connectedAt, call.greeting);
     // The secretary never got on the line (Twilio refused the TwiML, or the
     // caller hung up during the greeting): nothing to hand over, but the
     // failure belongs in the log instead of a call that hangs (10. 10. 2026).
@@ -388,6 +409,7 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
         kind: 'příchozí',
         info: { sid: call.sid, status: 'completed', duration_seconds: seconds, started: new Date(call.startedAt).toISOString(), ring_seconds: null },
         transcript: file,
+        ...(note !== null ? { note } : {}),
       });
       enqueue(config, { druh: call.callee.owner ? 'majitel' : 'rozhovor', cas: new Date(call.startedAt).toISOString(), od: call.from, presmerovano_z: call.forwardedFrom, delka_s: seconds, soubor: file });
       log(`hovor od ${call.from} skončil (${call.endedBy}), ${seconds} s`);
@@ -553,6 +575,7 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
       endedBy: 'caller',
       finished: false,
       connected: false,
+      greeting,
     };
     current = call;
     // A call whose relay never connects is closed after a minute, with the
@@ -571,7 +594,7 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
     const timing = (callee.owner || incoming.speech_timeout_ms === null ? '' : ` speechTimeout="${incoming.speech_timeout_ms}"`) + relayHints(config, incoming.hints);
     return twiml(
       `<Connect action="${escapeXml(`${base}/done`)}"><ConversationRelay url="${escapeXml(relay)}" language="${escapeXml(settings.language)}" ` +
-        `ttsProvider="ElevenLabs" voice="${escapeXml(relayVoice(config))}" welcomeGreeting="${escapeXml(greeting)}"${relayTranscription(config)}${timing} /></Connect>`,
+        `ttsProvider="ElevenLabs" voice="${escapeXml(relayVoice(config))}" welcomeGreeting="${escapeXml(pronounced(greeting, settings.language))}"${relayTranscription(config)}${timing} /></Connect>`,
     );
   };
 
@@ -602,6 +625,7 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
         }
         mine = true;
         call.connected = true;
+        call.connectedAt = Date.now();
         call.session.attach(ws);
         if (incoming.measure_gaps) {
           // The recording's start by our clock: halfway through the request, to a few tenths of a second.
@@ -617,7 +641,7 @@ export async function serve(config: Config, configPath?: string): Promise<void> 
         // The secretary is short (Karel: "klidně přísnější, 2-3 min"); the owner's own call is as long as one Miládka places.
         limit = setTimeout(() => {
           const closing = texts(config).closing;
-          ws.send(JSON.stringify({ type: 'text', token: closing, last: true }));
+          ws.send(JSON.stringify({ type: 'text', token: pronounced(closing, settings.language), last: true }));
           call.transcript.push({ who: 'assistant', text: closing });
           call.endedBy = 'time_limit';
           setTimeout(() => ws.send(JSON.stringify({ type: 'end' })), speakingMs(closing));

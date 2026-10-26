@@ -42,6 +42,8 @@ export interface LogEntry {
   info: CallInfo;
   /** Transcript file of a conversation, relative to the vault. */
   transcript?: string | null;
+  /** How the call went, when it says more than its length (a caller who left without a word). */
+  note?: string;
 }
 
 export function logCall(config: Config, entry: LogEntry): void {
@@ -57,7 +59,7 @@ export function logCall(config: Config, entry: LogEntry): void {
     );
     const incoming = entry.kind === 'příchozí' || entry.kind === 'záznamník' || entry.kind === 'odmítnuto';
     const how = entry.kind === 'odmítnuto' ? 'obsazovací tón' : incoming ? `${entry.info.duration_seconds ?? '?'} s` : outcome(entry.info);
-    let line = `- **${when}**, ${entry.kind}, ${incoming ? 'od' : 'komu'}: ${entry.who}, ${how}.`;
+    let line = `- **${when}**, ${entry.kind}, ${incoming ? 'od' : 'komu'}: ${entry.who}, ${how}${entry.note !== undefined ? `, ${entry.note}` : ''}.`;
     if (entry.message !== undefined) line += ` „${entry.message.replace(/\s+/g, ' ').trim()}“`;
     if (entry.transcript) line += ` ${entry.kind === 'záznamník' ? 'Nahrávka' : 'Přepis'}: [${entry.transcript.split('/').at(-1)}](${relative(dirname(file), resolve(vault, entry.transcript)).split('\\').join('/')})`;
     appendFileSync(file, `${line}\n`);

@@ -5,6 +5,17 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/),
 
 ## [Nevydáno]
 
+## [0.3.27] - 2026-11-15
+
+Sekretářka nebere každou větu jako vzkaz a nenechává si opakovat, čemu rozuměla.
+
+- Sekretářka reaguje na to, co volající říká, i když nejde o vzkaz. Když není co předat, nevymáhá vzkaz a rozloučí se. Dřív brala každou větu jako vzkaz: „Karel stojí vedle mě" si nechala zopakovat a slíbila, že to předá (Věrka 15. 11. 2026).
+- Nenechává si opakovat, čemu rozuměla, a „předám mu to" říká jen tehdy, když je co předat.
+
+### Při aktualizaci
+
+- Nastavení se nemění. Službu příchozích hovorů po aktualizaci restartuj (`systemctl --user restart mcp-phone-prichozi`) a znovu spusť hlídač vzkazů.
+
 ## [0.3.26] - 2026-10-26
 
 Sekretářka říká „AI" jako „éjáj", zavěšuje jen jednou a deník ukáže, kdy volající zavěsil beze slova.
